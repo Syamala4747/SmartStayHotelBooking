@@ -234,7 +234,7 @@ const AdminRooms = () => {
     
     // Convert room_type array to comma-separated string
     const roomTypeString = Array.isArray(room.room_type) 
-      ? room.room_type.map(type => type.replace(/_/g, ' ')).join(', ')
+      ? room.room_type.map((type: string) => type.replace(/_/g, ' ')).join(', ')
       : room.room_type.replace(/_/g, ' ');
     
     setFormData({
