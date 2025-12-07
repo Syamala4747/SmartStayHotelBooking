@@ -12,7 +12,7 @@ const AdminRooms = () => {
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
   const [formData, setFormData] = useState({
     room_number: '',
-    room_type: [] as string[],
+    room_type: '',
     cost: '',
     capacity: '',
     description: '',
@@ -68,7 +68,8 @@ const AdminRooms = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/upload/images', {
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      const response = await fetch(`${apiBaseUrl}/upload/images`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -136,8 +137,8 @@ const AdminRooms = () => {
       return;
     }
 
-    if (formData.room_type.length === 0) {
-      setToast({ message: 'Please select at least one room type', type: 'error' });
+    if (!formData.room_type.trim()) {
+      setToast({ message: 'Please enter room type(s)', type: 'error' });
       return;
     }
 
@@ -169,9 +170,15 @@ const AdminRooms = () => {
       }
     }
 
+    // Convert comma-separated string to array
+    const roomTypes = formData.room_type
+      .split(',')
+      .map(type => type.trim().toUpperCase().replace(/\s+/g, '_'))
+      .filter(type => type);
+
     const roomData = {
       room_number: formData.room_number,
-      room_type: formData.room_type,
+      room_type: roomTypes,
       cost: Number(formData.cost),
       capacity: Number(formData.capacity),
       description: formData.description,
@@ -203,7 +210,7 @@ const AdminRooms = () => {
       setUploadedImages([]);
       setFormData({
         room_number: '',
-        room_type: [],
+        room_type: '',
         cost: '',
         capacity: '',
         description: '',
@@ -224,24 +231,21 @@ const AdminRooms = () => {
     setEditingRoom(room);
     const existingImages = Array.isArray(room.images) ? room.images : [];
     setUploadedImages(existingImages);
+    
+    // Convert room_type array to comma-separated string
+    const roomTypeString = Array.isArray(room.room_type) 
+      ? room.room_type.map(type => type.replace(/_/g, ' ')).join(', ')
+      : room.room_type.replace(/_/g, ' ');
+    
     setFormData({
       room_number: room.room_number,
-      room_type: Array.isArray(room.room_type) ? room.room_type : [room.room_type],
+      room_type: roomTypeString,
       cost: room.cost.toString(),
       capacity: room.capacity?.toString() || '',
       description: room.description,
       images: '',
     });
     setShowForm(true);
-  };
-
-  const handleRoomTypeChange = (type: string) => {
-    setFormData(prev => ({
-      ...prev,
-      room_type: prev.room_type.includes(type)
-        ? prev.room_type.filter(t => t !== type)
-        : [...prev.room_type, type]
-    }));
   };
 
   const handleDelete = async (id: number) => {
@@ -283,7 +287,7 @@ const AdminRooms = () => {
               setUploadedImages([]);
               setFormData({
                 room_number: '',
-                room_type: [],
+                room_type: '',
                 cost: '',
                 capacity: '',
                 description: '',
@@ -318,53 +322,18 @@ const AdminRooms = () => {
                 </div>
 
                 <div style={styles.formGroup}>
-                  <label>Room Type (Select Multiple)</label>
-                  <div style={styles.checkboxGroup}>
-                    {[
-                      'AC', 
-                      'NON_AC', 
-                      'WITH_VENTILATION', 
-                      'WITHOUT_VENTILATION', 
-                      'STUDIO', 
-                      '1BHK', 
-                      '2BHK', 
-                      '3BHK', 
-                      '4BHK',
-                      'PENTHOUSE',
-                      'SUITE',
-                      'DELUXE',
-                      'PREMIUM',
-                      'STANDARD',
-                      'ECONOMY',
-                      'LUXURY',
-                      'SEA_VIEW',
-                      'CITY_VIEW',
-                      'GARDEN_VIEW',
-                      'BALCONY',
-                      'TERRACE',
-                      'POOL_ACCESS',
-                      'WIFI',
-                      'TV',
-                      'MINI_BAR',
-                      'KITCHEN',
-                      'PARKING',
-                      'PET_FRIENDLY',
-                      'SMOKING',
-                      'NON_SMOKING'
-                    ].map(type => (
-                      <label key={type} style={styles.checkboxLabel}>
-                        <input
-                          type="checkbox"
-                          checked={formData.room_type.includes(type)}
-                          onChange={() => handleRoomTypeChange(type)}
-                          style={styles.checkbox}
-                        />
-                        <span style={styles.checkboxText}>
-                          {type.replace('_', ' ')}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
+                  <label>Room Type</label>
+                  <input
+                    type="text"
+                    value={formData.room_type}
+                    onChange={(e) => setFormData({ ...formData, room_type: e.target.value })}
+                    placeholder="e.g., AC, 2BHK, Non AC, 3BHK"
+                    required
+                    style={styles.input}
+                  />
+                  <small style={styles.helpText}>
+                    Enter room types separated by commas (e.g., AC, 2BHK, Deluxe)
+                  </small>
                 </div>
 
                 <div style={styles.formGroup}>
@@ -743,6 +712,12 @@ const styles = {
     backgroundColor: 'white',
     transition: 'border 0.3s',
   },
+  helpText: {
+    fontSize: '0.85rem',
+    color: '#6B7280',
+    marginTop: '0.5rem',
+    display: 'block',
+  },
   submitButton: {
     background: 'linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)',
     color: 'white',
@@ -825,46 +800,7 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkboxGroup: {
-    display: 'grid',
-    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(3, 1fr)',
-    gap: '0.75rem',
-    marginTop: '0.5rem',
-    maxHeight: '400px',
-    overflowY: 'auto' as const,
-    padding: '0.5rem',
-    border: '1px solid #E5E7EB',
-    borderRadius: '12px',
-    backgroundColor: '#F9FAFB',
-  },
-  checkboxLabel: {
-    display: 'flex',
-    alignItems: 'center',
-    cursor: 'pointer',
-    padding: window.innerWidth <= 768 ? '0.6rem' : '0.75rem',
-    background: 'linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%)',
-    borderRadius: '10px',
-    transition: 'transform 0.2s, box-shadow 0.2s',
-    border: '2px solid transparent',
-    fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.85rem',
-    fontWeight: '600',
-    minHeight: '44px',
-    wordBreak: 'break-word' as const,
-  },
-  checkbox: {
-    marginRight: '0.5rem',
-    width: '18px',
-    height: '18px',
-    cursor: 'pointer',
-    flexShrink: 0,
-  },
-  checkboxText: {
-    fontSize: window.innerWidth <= 768 ? '0.85rem' : '0.95rem',
-    color: '#2c3e50',
-    fontWeight: '600',
-    lineHeight: '1.3',
-    flex: 1,
-  },
+
   imageLabel: {
     fontSize: '1.1rem',
     fontWeight: '700',

@@ -32,8 +32,14 @@ async function bootstrap() {
     console.log('📁 Serving static files from:', uploadsDir);
     
     app.enableCors({
-      origin: ['http://localhost:5173', 'http://localhost:3001'],
+      origin: [
+        'http://localhost:5173', 
+        'http://localhost:3001',
+        'https://smartstayhotelbooking.vercel.app'
+      ],
       credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization'],
     });
     
     app.useGlobalPipes(new ValidationPipe({
