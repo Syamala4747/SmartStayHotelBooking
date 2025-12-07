@@ -31,16 +31,36 @@ async function bootstrap() {
     });
     console.log('📁 Serving static files from:', uploadsDir);
 
+    // Enable CORS with dynamic origin validation
     app.enableCors({
-      origin: [
-        'http://localhost:5173',
-        'http://localhost:3001',
-        'https://smartstayhotelbooking.vercel.app'
-      ],
+      origin: (origin, callback) => {
+        const allowedOrigins = [
+          'http://localhost:5173',
+          'http://localhost:3001',
+          'https://smartstayhotelbooking.vercel.app',
+        ];
+        
+        // Allow all Vercel preview deployments
+        const isVercelPreview = origin && origin.includes('vercel.app');
+        
+        if (!origin || allowedOrigins.includes(origin) || isVercelPreview) {
+          callback(null, true);
+        } else {
+          callback(new Error('Not allowed by CORS'));
+        }
+      },
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      exposedHeaders: ['Content-Range', 'X-Content-Range'],
+      maxAge: 3600,
     });
+    
+    console.log('✅ CORS enabled for:');
+    console.log('  - http://localhost:5173');
+    console.log('  - http://localhost:3001');
+    console.log('  - https://smartstayhotelbooking.vercel.app');
+    console.log('  - All Vercel preview deployments (*.vercel.app)');
 
     app.useGlobalPipes(new ValidationPipe({
       whitelist: true,
