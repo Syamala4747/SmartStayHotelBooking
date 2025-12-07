@@ -101,7 +101,6 @@ const RoomDetail = () => {
 
   const handleBookingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setMessage('');
     setError('');
 
     // Validate dates

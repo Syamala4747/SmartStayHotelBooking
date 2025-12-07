@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getMyBookings, cancelBooking } from '../api/bookingsApi';
+import { getMyBookings } from '../api/bookingsApi';
 import { getRoomFeedback } from '../api/roomsApi';
 import { createFeedback, updateFeedback, deleteFeedback } from '../api/feedbackApi';
 import { useAuth } from '../context/AuthContext';
