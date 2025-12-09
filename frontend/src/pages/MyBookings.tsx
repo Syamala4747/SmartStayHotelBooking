@@ -263,6 +263,22 @@ const MyBookings = () => {
                     </p>
                   </div>
 
+                  {/* Add-ons */}
+                  {booking.customizations && Object.entries(booking.customizations).some(([_, selected]) => selected) && (
+                    <div style={styles.addOnsBox}>
+                      <p style={styles.addOnsTitle}>🎯 Add-ons:</p>
+                      <div style={styles.addOnsList}>
+                        {Object.entries(booking.customizations)
+                          .filter(([_, selected]) => selected)
+                          .map(([key, _]) => (
+                            <span key={key} style={styles.addOnTag}>
+                              {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                            </span>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Feedback */}
                   {isBookingCompleted(booking) && (() => {
                     const userFeedback = getUserFeedback(booking);
@@ -468,20 +484,22 @@ const styles = {
   card: {
     backgroundColor: 'white',
     borderRadius: '8px',
-    padding: '1rem',
+    padding: isMobile ? '1.25rem' : '1rem',
     marginBottom: '1rem',
     border: '1px solid #e5e5e5',
     width: '100%',
     boxSizing: 'border-box' as const,
+    boxShadow: isMobile ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
   },
   row: {
     display: 'flex',
-    gap: '1rem',
+    gap: isMobile ? '0.75rem' : '1rem',
     alignItems: 'flex-start',
+    flexDirection: isMobile ? 'column' as const : 'row' as const,
   },
   img: {
-    width: '100px',
-    height: '100px',
+    width: isMobile ? '100%' : '100px',
+    height: isMobile ? '200px' : '100px',
     objectFit: 'cover' as const,
     borderRadius: '6px',
     flexShrink: 0,
@@ -498,7 +516,7 @@ const styles = {
     marginBottom: '0.5rem',
   },
   room: {
-    fontSize: '1.1rem',
+    fontSize: isMobile ? '1.25rem' : '1.1rem',
     fontWeight: '600',
     color: '#1F2937',
     margin: 0,
@@ -510,9 +528,10 @@ const styles = {
     fontWeight: '600',
   },
   text: {
-    fontSize: '0.9rem',
+    fontSize: isMobile ? '1rem' : '0.9rem',
     color: '#6B7280',
     margin: '0.25rem 0',
+    lineHeight: isMobile ? '1.5' : '1.2',
   },
   costBox: {
     backgroundColor: '#F9FAFB',
@@ -521,15 +540,41 @@ const styles = {
     marginTop: '0.5rem',
   },
   costLine: {
-    fontSize: '0.9rem',
+    fontSize: isMobile ? '1rem' : '0.9rem',
     color: '#6B7280',
     margin: '0 0 0.5rem 0',
   },
   totalLine: {
-    fontSize: '1rem',
+    fontSize: isMobile ? '1.25rem' : '1rem',
     fontWeight: '700',
     color: '#6C5CE7',
     margin: 0,
+  },
+  addOnsBox: {
+    backgroundColor: '#EEF2FF',
+    padding: '0.75rem',
+    borderRadius: '6px',
+    marginTop: '0.5rem',
+  },
+  addOnsTitle: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#4F46E5',
+    margin: '0 0 0.5rem 0',
+  },
+  addOnsList: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: '0.25rem',
+  },
+  addOnTag: {
+    padding: '0.25rem 0.5rem',
+    backgroundColor: '#FFFFFF',
+    color: '#4F46E5',
+    borderRadius: '12px',
+    fontSize: '0.75rem',
+    fontWeight: '500',
+    border: '1px solid #C7D2FE',
   },
   btn: {
     backgroundColor: '#6C5CE7',

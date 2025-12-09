@@ -16,4 +16,17 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   paymentMethod?: string;
+
+  @IsNotEmpty()
+  @IsString()
+  phoneNumber: string;
+
+  @IsOptional()
+  customizations?: {
+    extraBed?: boolean;
+    breakfast?: boolean;
+    airportPickup?: boolean;
+    lateCheckout?: boolean;
+    roomDecoration?: boolean;
+  };
 }

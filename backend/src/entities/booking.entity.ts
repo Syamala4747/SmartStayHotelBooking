@@ -14,11 +14,11 @@ export class Booking {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => Room, room => room.bookings, { eager: true })
+  @ManyToOne(() => Room, room => room.bookings)
   @JoinColumn({ name: 'room_id' })
   room: Room;
 
-  @ManyToOne(() => User, user => user.bookings, { eager: true })
+  @ManyToOne(() => User, user => user.bookings)
   @JoinColumn({ name: 'user_id' })
   user: User;
 
@@ -36,6 +36,18 @@ export class Booking {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   payment_method: string;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  phone_number: string;
+
+  @Column({ type: 'json', nullable: true })
+  customizations: {
+    extraBed?: boolean;
+    breakfast?: boolean;
+    airportPickup?: boolean;
+    lateCheckout?: boolean;
+    roomDecoration?: boolean;
+  };
 
   @Column({
     type: 'enum',

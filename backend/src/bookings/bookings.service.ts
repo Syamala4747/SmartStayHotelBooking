@@ -11,11 +11,11 @@ export class BookingsService {
     @InjectRepository(Booking)
     private bookingsRepository: Repository<Booking>,
     private roomsService: RoomsService,
-  ) {}
+  ) { }
 
   async create(userId: number, createBookingDto: CreateBookingDto): Promise<Booking> {
     const room = await this.roomsService.findOne(createBookingDto.roomId);
-    
+
     if (!room.is_active) {
       throw new BadRequestException('Room is not available');
     }
@@ -49,26 +49,26 @@ export class BookingsService {
     // Calculate duration and total cost
     const diffTime = endTime.getTime() - startTime.getTime();
     const durationHours = Math.ceil(diffTime / (1000 * 60 * 60));
-    
-    // Treat room.cost as daily rate, calculate hourly rate
+
+    // Check minimum 6-hour requirement
+    if (durationHours < 6) {
+      throw new BadRequestException('Minimum stay requirement is 6 hours');
+    }
+
     const dailyRate = room.cost;
-    const hourlyRate = dailyRate / 24;
-    
+
     // Calculate cost based on duration
     let totalCost: number;
-    if (durationHours <= 6) {
-      // Minimum 6 hours
-      totalCost = Math.ceil(6 * hourlyRate);
-    } else if (durationHours <= 12) {
-      // Hourly rate for 6-12 hours
-      totalCost = Math.ceil(durationHours * hourlyRate);
+    if (durationHours <= 12) {
+      // 6-12 hours: half the daily cost
+      totalCost = dailyRate / 2;
     } else if (durationHours <= 24) {
-      // Full day rate for 12-24 hours
+      // 12-24 hours: full daily cost
       totalCost = dailyRate;
     } else {
-      // Multiple days
-      const days = Math.ceil(durationHours / 24);
-      totalCost = days * dailyRate;
+      // Multiple days: calculate full days
+      const fullDays = Math.ceil(durationHours / 24);
+      totalCost = fullDays * dailyRate;
     }
 
     const booking = this.bookingsRepository.create({
@@ -79,6 +79,8 @@ export class BookingsService {
       duration_hours: durationHours,
       total_cost: totalCost,
       payment_method: createBookingDto.paymentMethod || 'CASH',
+      phone_number: createBookingDto.phoneNumber,
+      customizations: createBookingDto.customizations || {},
     });
 
     return this.bookingsRepository.save(booking);
@@ -87,34 +89,29 @@ export class BookingsService {
   async findMyBookings(userId: number): Promise<Booking[]> {
     return this.bookingsRepository.find({
       where: { user: { id: userId } },
+      relations: ['room', 'user'],
       order: { created_at: 'DESC' },
     });
   }
 
   async findAll(): Promise<Booking[]> {
     return this.bookingsRepository.find({
+      relations: ['room', 'user'],
       order: { created_at: 'DESC' },
     });
   }
 
   async findRoomBookings(roomId: number, date?: string): Promise<Booking[]> {
-    const query = this.bookingsRepository
-      .createQueryBuilder('booking')
-      .where('booking.room_id = :roomId', { roomId })
-      .andWhere('booking.status = :status', { status: BookingStatus.CONFIRMED });
+    console.log(`Finding bookings for room ${roomId}`);
 
-    if (date) {
-      const startOfDay = new Date(date);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(date);
-      endOfDay.setHours(23, 59, 59, 999);
+    // Use the same method as findAll() to get real database data
+    const allBookings = await this.findAll();
 
-      query
-        .andWhere('booking.start_time < :endOfDay', { endOfDay })
-        .andWhere('booking.end_time > :startOfDay', { startOfDay });
-    }
+    // Filter for the specific room - only return real data from database
+    const roomBookings = allBookings.filter(booking => booking.room?.id === roomId);
 
-    return query.getMany();
+    console.log(`Found ${roomBookings.length} real bookings for room ${roomId}`);
+    return roomBookings;
   }
 
   async cancelBooking(bookingId: number, userId: number, userRole: string): Promise<Booking> {
@@ -142,7 +139,7 @@ export class BookingsService {
 
   async updateStatus(id: number, status: string): Promise<Booking> {
     const booking = await this.bookingsRepository.findOne({ where: { id } });
-    
+
     if (!booking) {
       throw new NotFoundException('Booking not found');
     }

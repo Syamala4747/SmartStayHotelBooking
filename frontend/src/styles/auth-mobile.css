@@ -9,8 +9,10 @@
   /* Container adjustments */
   .auth-container {
     flex-direction: column !important;
-    padding: 2rem 1rem !important;
+    padding: 1rem !important;
     gap: 0 !important;
+    min-height: calc(100vh - 140px) !important;
+    justify-content: center !important;
   }
 
   /* Right side takes full width */
@@ -18,40 +20,59 @@
     width: 100% !important;
     padding: 0 !important;
     background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
   }
 
   /* Form container */
   .auth-form-container,
   .signup-form-container {
     max-width: 100% !important;
+    width: 100% !important;
     padding: 2rem 1.5rem !important;
-    border-radius: 16px !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15) !important;
+    background: rgba(255, 255, 255, 0.98) !important;
+    backdrop-filter: blur(10px) !important;
+    margin: 1rem !important;
   }
 
   /* Form title */
   .auth-form-title {
-    font-size: 1.75rem !important;
+    font-size: 2rem !important;
+    margin-bottom: 0.75rem !important;
+    text-align: center !important;
   }
 
   /* Form subtitle */
   .auth-form-container p,
   .signup-form-container p {
-    font-size: 0.95rem !important;
+    font-size: 1rem !important;
+    text-align: center !important;
+    margin-bottom: 2rem !important;
   }
 
   /* Input fields */
   .auth-input,
   .signup-input {
     font-size: 16px !important; /* Prevents zoom on iOS */
-    padding: 0.875rem 1rem !important;
+    padding: 1rem 1.25rem !important;
+    border-radius: 12px !important;
+    border: 2px solid #E5E7EB !important;
+    background-color: #F9FAFB !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   /* Buttons */
   .auth-button,
   .signup-button {
-    padding: 1rem !important;
-    font-size: 1rem !important;
+    padding: 1.125rem !important;
+    font-size: 1.05rem !important;
+    border-radius: 12px !important;
+    width: 100% !important;
+    font-weight: 700 !important;
   }
 
   /* Form groups */
@@ -86,27 +107,48 @@
 /* Small mobile devices */
 @media (max-width: 480px) {
   .auth-container {
-    padding: 1.5rem 0.75rem !important;
+    padding: 1rem 0.5rem !important;
+    min-height: calc(100vh - 120px) !important;
   }
 
   .auth-form-container,
   .signup-form-container {
     padding: 1.5rem 1rem !important;
-    border-radius: 12px !important;
+    border-radius: 16px !important;
+    margin: 0.5rem !important;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
   }
 
   .auth-form-title {
-    font-size: 1.5rem !important;
+    font-size: 1.75rem !important;
+    margin-bottom: 0.5rem !important;
   }
 
   .auth-input,
   .signup-input {
-    padding: 0.75rem 0.875rem !important;
+    padding: 1rem !important;
+    font-size: 16px !important;
+    border-radius: 10px !important;
   }
 
   .auth-button,
   .signup-button {
-    padding: 0.875rem !important;
+    padding: 1rem !important;
+    font-size: 1rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Form groups spacing */
+  .auth-form-container form,
+  .signup-form-container form {
+    gap: 1rem !important;
+  }
+
+  /* Labels */
+  .auth-form-container label,
+  .signup-form-container label {
+    font-size: 0.875rem !important;
+    margin-bottom: 0.5rem !important;
   }
 }
 

@@ -13,10 +13,31 @@ const RoomDetail = () => {
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [phoneNumber, setPhoneNumber] = useState('');
   const [error, setError] = useState('');
+  
+  // Customization options
+  const [customizations, setCustomizations] = useState({
+    extraBed: false,
+    breakfast: false,
+    airportPickup: false,
+    lateCheckout: false,
+    roomDecoration: false,
+  });
+
+  // Force re-render when customizations change
+  const [, forceUpdate] = useState({});
+  const [currentTotal, setCurrentTotal] = useState(0);
+
+  const customizationPrices = {
+    extraBed: 500,
+    breakfast: 300,
+    airportPickup: 800,
+    lateCheckout: 200,
+    roomDecoration: 1000,
+  };
   const [loading, setLoading] = useState(true);
-  const [selectedPayment, setSelectedPayment] = useState('');
-  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [bookingDetails, setBookingDetails] = useState<{
     startTime: string;
@@ -27,6 +48,12 @@ const RoomDetail = () => {
   useEffect(() => {
     loadRoomData();
   }, [id]);
+
+  // Force re-render when customizations change
+  useEffect(() => {
+    forceUpdate({});
+    setCurrentTotal(calculateTotal());
+  }, [customizations, startTime, endTime, room]);
 
   const loadRoomData = async () => {
     try {
@@ -43,16 +70,16 @@ const RoomDetail = () => {
 
   const calculateDuration = () => {
     if (!startTime || !endTime) return { hours: 0, days: 0, halfDays: 0 };
-    
+
     const start = new Date(startTime);
     const end = new Date(endTime);
     const diffTime = end.getTime() - start.getTime();
     const diffHours = diffTime / (1000 * 60 * 60);
     const diffDays = diffHours / 24;
-    
+
     // Calculate half days (12-hour periods)
     const halfDays = Math.ceil(diffHours / 12);
-    
+
     return {
       hours: diffHours,
       days: Math.floor(diffDays),
@@ -62,44 +89,87 @@ const RoomDetail = () => {
 
   const calculateTotal = () => {
     const duration = calculateDuration();
-    const costPerDay = room?.cost || 0;
-    const costPerHalfDay = costPerDay / 2;
-    
+    // Ensure costPerDay is a number, not a string
+    const costPerDay = Number(room?.cost) || 0;
+
     // If less than 6 hours, return 0 (invalid)
     if (duration.hours < 6) return 0;
+
+    let basePrice = 0;
+    // If 6-12 hours: half the daily cost
+    if (duration.hours <= 12) basePrice = Math.round(costPerDay / 2);
+    // If 12-24 hours: full daily cost
+    else if (duration.hours <= 24) basePrice = costPerDay;
+    // For multiple days: calculate full days
+    else {
+      const fullDays = Math.ceil(duration.hours / 24);
+      basePrice = fullDays * costPerDay;
+    }
+
+    // Calculate customization costs - ensure all are numbers
+    let customizationCost = 0;
+    if (customizations.extraBed) customizationCost += Number(customizationPrices.extraBed);
+    if (customizations.breakfast) customizationCost += Number(customizationPrices.breakfast);
+    if (customizations.airportPickup) customizationCost += Number(customizationPrices.airportPickup);
+    if (customizations.lateCheckout) customizationCost += Number(customizationPrices.lateCheckout);
+    if (customizations.roomDecoration) customizationCost += Number(customizationPrices.roomDecoration);
+
+    // Ensure final calculation is done with numbers
+    const finalTotal = Number(basePrice) + Number(customizationCost);
     
-    // If 6-12 hours: half day rate
-    if (duration.hours <= 12) return costPerHalfDay;
-    
-    // If 12-24 hours: full day rate
-    if (duration.hours <= 24) return costPerDay;
-    
-    // For multiple days: calculate based on half-day periods
-    // Each 12-hour period costs half a day
-    return duration.halfDays * costPerHalfDay;
+    // Debug logging
+    console.log('🔍 Calculate Total Debug:', {
+      basePrice: Number(basePrice),
+      basePriceType: typeof basePrice,
+      customizations,
+      customizationCost: Number(customizationCost),
+      customizationCostType: typeof customizationCost,
+      finalTotal: Number(finalTotal),
+      finalTotalType: typeof finalTotal,
+      startTime,
+      endTime,
+      roomCost: room?.cost,
+      roomCostType: typeof room?.cost
+    });
+
+    return Number(finalTotal);
+  };
+
+
+
+  const getBaseRoomCost = () => {
+    const duration = calculateDuration();
+    // Ensure costPerDay is a number
+    const costPerDay = Number(room?.cost) || 0;
+
+    // If less than 6 hours, return 0 (invalid)
+    if (duration.hours < 6) return 0;
+
+    let basePrice = 0;
+    // If 6-12 hours: half the daily cost
+    if (duration.hours <= 12) basePrice = Math.round(costPerDay / 2);
+    // If 12-24 hours: full daily cost
+    else if (duration.hours <= 24) basePrice = costPerDay;
+    // For multiple days: calculate full days
+    else {
+      const fullDays = Math.ceil(duration.hours / 24);
+      basePrice = fullDays * costPerDay;
+    }
+
+    return basePrice;
   };
 
   const getDurationText = () => {
     const duration = calculateDuration();
-    
-    if (duration.hours < 6) return 'Less than 6 hours (minimum required)';
-    if (duration.hours <= 12) return '6-12 hours (Half day)';
-    if (duration.hours <= 24) return '12-24 hours (Full day)';
-    
-    const days = Math.floor(duration.hours / 24);
-    const remainingHours = duration.hours % 24;
-    
-    let text = '';
-    if (days > 0) text += `${days} day${days > 1 ? 's' : ''}`;
-    if (remainingHours >= 6) {
-      if (text) text += ' + ';
-      text += remainingHours <= 12 ? 'half day' : 'full day';
-    }
-    
-    return text || `${Math.round(duration.hours)} hours`;
+
+    if (duration.hours < 6) return `${Math.round(duration.hours)} hours (minimum 6 hours required)`;
+    if (duration.hours <= 12) return `${Math.round(duration.hours)} hours (Half day rate)`;
+    if (duration.hours <= 24) return `${Math.round(duration.hours)} hours (Full day rate)`;
+
+    return `${Math.round(duration.hours)} hours (${Math.ceil(duration.hours / 24)} day${Math.ceil(duration.hours / 24) > 1 ? 's' : ''})`;
   };
 
-  const handleBookingSubmit = (e: React.FormEvent) => {
+  const handleBookingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -118,6 +188,12 @@ const RoomDetail = () => {
       return;
     }
 
+    // Check phone number
+    if (!phoneNumber.trim()) {
+      setError('Phone number is required');
+      return;
+    }
+
     // Check minimum 6-hour stay requirement
     const duration = calculateDuration();
     if (duration.hours < 6) {
@@ -125,15 +201,11 @@ const RoomDetail = () => {
       return;
     }
 
-    // Show payment options
-    setShowPaymentOptions(true);
+    // Directly proceed with booking (Pay at Check-in)
+    await handleDirectBooking();
   };
 
-  const handlePayment = async () => {
-    if (!selectedPayment) {
-      setError('Please select a payment method');
-      return;
-    }
+  const handleDirectBooking = async () => {
 
     try {
       // Store booking details before clearing
@@ -147,13 +219,14 @@ const RoomDetail = () => {
         roomId: Number(id),
         startTime,
         endTime,
+        phoneNumber: phoneNumber,
+        customizations: customizations,
       });
-      
-      setShowPaymentOptions(false);
+
       setShowSuccessModal(true);
       setStartTime('');
       setEndTime('');
-      setSelectedPayment('');
+      setPhoneNumber('');
     } catch (err: any) {
       setError(err.response?.data?.message || 'Booking failed');
     }
@@ -184,7 +257,7 @@ const RoomDetail = () => {
             <div style={styles.modalDetails}>
               <p>📅 Check-in: {new Date(bookingDetails.startTime).toLocaleString()}</p>
               <p>📅 Check-out: {new Date(bookingDetails.endTime).toLocaleString()}</p>
-              <p>💰 Total Paid: ${bookingDetails.total}</p>
+              <p>💰 Total Paid: ₹{bookingDetails.total}</p>
             </div>
             <button
               onClick={() => {
@@ -199,8 +272,8 @@ const RoomDetail = () => {
           </div>
         </div>
       )}
-      
-      <div style={styles.container}>
+
+      <div style={styles.container} className="room-detail-container">
         {/* Simple Header */}
         <div style={styles.header}>
           <h1 style={styles.title}>Room {room.room_number}</h1>
@@ -218,10 +291,10 @@ const RoomDetail = () => {
         {room.images && room.images.length > 0 && (
           <div style={styles.images}>
             {room.images.map((img: string, idx: number) => (
-              <img 
-                key={idx} 
-                src={img} 
-                alt={`Room ${idx + 1}`} 
+              <img
+                key={idx}
+                src={img}
+                alt={`Room ${idx + 1}`}
                 style={styles.image}
                 loading={idx === 0 ? 'eager' : 'lazy'}
                 decoding="async"
@@ -249,9 +322,9 @@ const RoomDetail = () => {
         {user?.role === 'USER' && mode === 'book' && (
           <div style={styles.section}>
             <h3 style={styles.sectionTitle}>Book This Room</h3>
-            
+
             {error && <div style={styles.error}>{error}</div>}
-            
+
             <form onSubmit={handleBookingSubmit} style={styles.form}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Check-in</label>
@@ -260,14 +333,13 @@ const RoomDetail = () => {
                   value={startTime}
                   onChange={(e) => {
                     setStartTime(e.target.value);
-                    setShowPaymentOptions(false);
                   }}
                   min={new Date().toISOString().slice(0, 16)}
                   required
                   style={styles.input}
                 />
               </div>
-              
+
               <div style={styles.formGroup}>
                 <label style={styles.label}>Check-out</label>
                 <input
@@ -275,7 +347,6 @@ const RoomDetail = () => {
                   value={endTime}
                   onChange={(e) => {
                     setEndTime(e.target.value);
-                    setShowPaymentOptions(false);
                   }}
                   min={startTime || new Date().toISOString().slice(0, 16)}
                   required
@@ -283,14 +354,105 @@ const RoomDetail = () => {
                 />
               </div>
 
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Phone Number *</label>
+                <input
+                  type="tel"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="Enter your phone number"
+                  required
+                  style={styles.input}
+                />
+              </div>
+
+              {/* Customization Options */}
+              <div style={styles.customizationSection}>
+                <h4 style={styles.customizationTitle}>Optional Add-ons</h4>
+                <div style={styles.customizationGrid}>
+                  <label style={styles.customizationItem} className="customization-item">
+                    <input
+                      type="checkbox"
+                      checked={customizations.extraBed}
+                      onChange={(e) => setCustomizations(prev => ({...prev, extraBed: e.target.checked}))}
+                      style={styles.checkbox}
+                    />
+                    <div style={styles.customizationInfo}>
+                      <span style={styles.customizationName}>Extra Bed</span>
+                      <span style={styles.customizationPrice}>+₹{customizationPrices.extraBed}</span>
+                    </div>
+                  </label>
+
+                  <label style={styles.customizationItem} className="customization-item">
+                    <input
+                      type="checkbox"
+                      checked={customizations.breakfast}
+                      onChange={(e) => setCustomizations(prev => ({...prev, breakfast: e.target.checked}))}
+                      style={styles.checkbox}
+                    />
+                    <div style={styles.customizationInfo}>
+                      <span style={styles.customizationName}>Breakfast</span>
+                      <span style={styles.customizationPrice}>+₹{customizationPrices.breakfast}</span>
+                    </div>
+                  </label>
+
+                  <label style={styles.customizationItem} className="customization-item">
+                    <input
+                      type="checkbox"
+                      checked={customizations.airportPickup}
+                      onChange={(e) => setCustomizations(prev => ({...prev, airportPickup: e.target.checked}))}
+                      style={styles.checkbox}
+                    />
+                    <div style={styles.customizationInfo}>
+                      <span style={styles.customizationName}>Airport Pickup</span>
+                      <span style={styles.customizationPrice}>+₹{customizationPrices.airportPickup}</span>
+                    </div>
+                  </label>
+
+                  <label style={styles.customizationItem} className="customization-item">
+                    <input
+                      type="checkbox"
+                      checked={customizations.lateCheckout}
+                      onChange={(e) => setCustomizations(prev => ({...prev, lateCheckout: e.target.checked}))}
+                      style={styles.checkbox}
+                    />
+                    <div style={styles.customizationInfo}>
+                      <span style={styles.customizationName}>Late Checkout</span>
+                      <span style={styles.customizationPrice}>+₹{customizationPrices.lateCheckout}</span>
+                    </div>
+                  </label>
+
+                  <label style={styles.customizationItem} className="customization-item">
+                    <input
+                      type="checkbox"
+                      checked={customizations.roomDecoration}
+                      onChange={(e) => setCustomizations(prev => ({...prev, roomDecoration: e.target.checked}))}
+                      style={styles.checkbox}
+                    />
+                    <div style={styles.customizationInfo}>
+                      <span style={styles.customizationName}>Room Decoration</span>
+                      <span style={styles.customizationPrice}>+₹{customizationPrices.roomDecoration}</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
               {startTime && endTime && (
-                <div style={styles.priceBreakdown}>
+                <div key={JSON.stringify(customizations)} style={styles.priceBreakdown}>
                   <div style={styles.priceRow}>
                     <span>⏱️ Duration: {getDurationText()}</span>
                   </div>
                   <div style={styles.priceRow}>
-                    <span>💵 Rate: ₹{Math.ceil(room.cost / 24)}/hour (₹{room.cost}/day)</span>
+                    <span>💵 Room Rate: ₹{Number(getBaseRoomCost()).toFixed(0)}</span>
                   </div>
+                  {Object.entries(customizations)
+                    .filter(([_, selected]) => selected)
+                    .map(([key, _]) => (
+                      <div key={key} style={styles.priceRow}>
+                        <span>🎯 {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}: ₹{customizationPrices[key as keyof typeof customizationPrices]}</span>
+                      </div>
+                    ))
+                  }
                   {calculateDuration().hours < 6 && (
                     <div style={styles.warningRow}>
                       <span>⚠️ Minimum 6 hours required</span>
@@ -299,59 +461,24 @@ const RoomDetail = () => {
                   <div style={styles.totalRow}>
                     <span style={styles.totalLabel}>Total Amount:</span>
                     <span style={styles.totalAmount}>
-                      {calculateTotal() > 0 ? `$${calculateTotal()}` : 'Invalid duration'}
+                      {currentTotal > 0 ? `₹${Number(currentTotal).toFixed(0)}` : 'Invalid duration'}
                     </span>
                   </div>
                 </div>
               )}
-              
-              {!showPaymentOptions && (
-                <button type="submit" style={styles.button}>
-                  Continue to Payment
-                </button>
-              )}
-            </form>
 
-            {/* Payment Options */}
-            {showPaymentOptions && (
-              <div style={styles.paymentSection}>
-                <h4 style={styles.paymentTitle}>Select Payment Method</h4>
-                <div style={styles.paymentOptions}>
-                  {['Credit Card', 'Debit Card', 'UPI', 'Net Banking', 'Cash on Arrival'].map((method) => (
-                    <div
-                      key={method}
-                      onClick={() => setSelectedPayment(method)}
-                      style={{
-                        ...styles.paymentOption,
-                        border: selectedPayment === method ? '2px solid #6C5CE7' : '2px solid #E5E7EB',
-                        backgroundColor: selectedPayment === method ? '#F3F0FF' : 'white',
-                      }}
-                    >
-                      <div style={styles.paymentIcon}>
-                        {method === 'Credit Card' && '💳'}
-                        {method === 'Debit Card' && '💳'}
-                        {method === 'UPI' && '📱'}
-                        {method === 'Net Banking' && '🏦'}
-                        {method === 'Cash on Arrival' && '💵'}
-                      </div>
-                      <span style={styles.paymentLabel}>{method}</span>
-                      {selectedPayment === method && <span style={styles.checkmark}>✓</span>}
-                    </div>
-                  ))}
+              {/* Payment Info */}
+              <div style={styles.paymentInfo}>
+                <div style={styles.paymentIcon}>💵</div>
+                <div>
+                  <div style={styles.paymentDesc}>Pay ₹{Number(currentTotal).toFixed(0)} when you arrive at the hotel</div>
                 </div>
-                <button
-                  onClick={handlePayment}
-                  disabled={!selectedPayment}
-                  style={{
-                    ...styles.button,
-                    opacity: selectedPayment ? 1 : 0.5,
-                    cursor: selectedPayment ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  Pay ${calculateTotal()}
-                </button>
               </div>
-            )}
+
+              <button type="submit" style={styles.button}>
+                Book Now - Pay at Check-in
+              </button>
+            </form>
           </div>
         )}
 
@@ -382,7 +509,7 @@ const styles = {
   wrapper: {
     minHeight: '100vh',
     backgroundColor: '#F9FAFB',
-    paddingTop: '100px',
+    paddingTop: '140px', // Increased margin to ensure room number is visible
   },
   loadingContainer: {
     display: 'flex',
@@ -395,24 +522,26 @@ const styles = {
   container: {
     maxWidth: '900px',
     margin: '0 auto',
-    padding: '2rem 1rem',
+    padding: window.innerWidth <= 768 ? '1rem 0.75rem' : '2rem 1rem',
   },
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: window.innerWidth <= 768 ? 'flex-start' : 'center',
     marginBottom: '1rem',
+    flexDirection: window.innerWidth <= 768 ? 'column' as const : 'row' as const,
+    gap: window.innerWidth <= 768 ? '0.5rem' : '0',
   },
   title: {
-    fontSize: '2rem',
+    fontSize: window.innerWidth <= 768 ? '1.5rem' : '2rem',
     fontWeight: '700',
     color: '#1F2937',
     margin: 0,
   },
   price: {
-    fontSize: '2rem',
+    fontSize: window.innerWidth <= 768 ? '1.5rem' : '2rem',
     fontWeight: '700',
-    color: '#6C5CE7',
+    color: '#667EEA',
   },
   perNight: {
     fontSize: '1rem',
@@ -449,27 +578,31 @@ const styles = {
   },
   info: {
     display: 'flex',
-    gap: '2rem',
+    gap: window.innerWidth <= 768 ? '1rem' : '2rem',
     marginBottom: '2rem',
-    padding: '1rem',
+    padding: window.innerWidth <= 768 ? '1.25rem' : '1rem',
     backgroundColor: 'white',
     borderRadius: '12px',
+    flexDirection: window.innerWidth <= 768 ? 'column' as const : 'row' as const,
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   infoItem: {
-    fontSize: '1rem',
+    fontSize: window.innerWidth <= 768 ? '1.1rem' : '1rem',
     color: '#1F2937',
+    fontWeight: window.innerWidth <= 768 ? '500' : '400',
   },
   section: {
     backgroundColor: 'white',
-    padding: '2rem',
+    padding: window.innerWidth <= 768 ? '1.25rem' : '2rem',
     borderRadius: '12px',
     marginBottom: '1.5rem',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
   },
   sectionTitle: {
-    fontSize: '1.5rem',
+    fontSize: window.innerWidth <= 768 ? '1.25rem' : '1.5rem',
     fontWeight: '700',
     color: '#1F2937',
-    marginBottom: '1.5rem',
+    marginBottom: window.innerWidth <= 768 ? '1rem' : '1.5rem',
   },
   description: {
     fontSize: '1rem',
@@ -507,20 +640,24 @@ const styles = {
     color: '#1F2937',
   },
   input: {
-    padding: '0.75rem',
+    padding: window.innerWidth <= 768 ? '1rem' : '0.75rem',
     border: '1px solid #E5E7EB',
-    borderRadius: '8px',
-    fontSize: '1rem',
+    borderRadius: window.innerWidth <= 768 ? '12px' : '8px',
+    fontSize: window.innerWidth <= 768 ? '16px' : '1rem', // 16px prevents zoom on iOS
+    minHeight: window.innerWidth <= 768 ? '48px' : 'auto',
   },
   button: {
-    background: '#6C5CE7',
+    background: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
     color: 'white',
-    padding: '1rem',
+    padding: window.innerWidth <= 768 ? '0.625rem' : '0.5rem',
     border: 'none',
-    borderRadius: '8px',
+    borderRadius: '6px',
     cursor: 'pointer',
-    fontSize: '1rem',
+    fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.75rem',
     fontWeight: '600',
+    boxShadow: '0 2px 8px rgba(102, 126, 234, 0.25)',
+    transition: 'all 0.3s ease',
+    minHeight: window.innerWidth <= 768 ? '40px' : 'auto',
   },
   review: {
     padding: '1rem',
@@ -578,43 +715,29 @@ const styles = {
     fontWeight: '700',
     color: '#6C5CE7',
   },
-  paymentSection: {
-    marginTop: '2rem',
-    padding: '1.5rem',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '12px',
-  },
-  paymentTitle: {
-    fontSize: '1.25rem',
-    fontWeight: '700',
-    color: '#1F2937',
-    marginBottom: '1.5rem',
-  },
-  paymentOptions: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+  paymentInfo: {
+    display: 'flex',
+    alignItems: 'center',
     gap: '1rem',
     marginBottom: '1.5rem',
-  },
-  paymentOption: {
-    padding: '1.25rem',
+    padding: '1.5rem',
+    backgroundColor: '#F0F9FF',
     borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s',
-    display: 'flex',
-    flexDirection: 'column' as const,
-    alignItems: 'center',
-    gap: '0.5rem',
-    position: 'relative' as const,
+    border: '1px solid #E0F2FE',
   },
   paymentIcon: {
-    fontSize: '2rem',
+    fontSize: '2.5rem',
   },
-  paymentLabel: {
+  paymentTitle: {
+    fontSize: '1.1rem',
+    fontWeight: '700',
+    color: '#0369A1',
+    marginBottom: '0.25rem',
+  },
+  paymentDesc: {
     fontSize: '0.9rem',
-    fontWeight: '600',
-    color: '#374151',
-    textAlign: 'center' as const,
+    color: '#0284C7',
+    fontWeight: '500',
   },
   checkmark: {
     position: 'absolute' as const,
@@ -646,11 +769,13 @@ const styles = {
   modal: {
     backgroundColor: 'white',
     borderRadius: '20px',
-    padding: '3rem 2rem',
+    padding: window.innerWidth <= 768 ? '2rem 1.5rem' : '3rem 2rem',
     maxWidth: '500px',
     width: '90%',
     textAlign: 'center' as const,
     boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+    maxHeight: window.innerWidth <= 768 ? '90vh' : 'auto',
+    overflow: 'auto',
   },
   successIcon: {
     width: '80px',
@@ -695,6 +820,145 @@ const styles = {
     width: '100%',
     transition: 'transform 0.2s',
   },
+  customizationSection: {
+    marginBottom: '1.5rem',
+    padding: window.innerWidth <= 768 ? '1rem' : '1.5rem',
+    backgroundColor: '#F8FAFC',
+    borderRadius: '12px',
+    border: '1px solid #E2E8F0',
+  },
+  customizationTitle: {
+    fontSize: window.innerWidth <= 768 ? '1.125rem' : '1.1rem',
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: window.innerWidth <= 768 ? '1.25rem' : '1rem',
+    textAlign: window.innerWidth <= 768 ? 'center' as const : 'left' as const,
+  },
+  customizationGrid: {
+    display: 'grid',
+    gridTemplateColumns: window.innerWidth <= 768 ? '1fr' : 'repeat(2, 1fr)',
+    gap: window.innerWidth <= 768 ? '1rem' : '0.75rem',
+  },
+  customizationItem: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: window.innerWidth <= 768 ? '0.75rem' : '0.5rem',
+    padding: window.innerWidth <= 768 ? '1rem' : '0.75rem',
+    backgroundColor: 'white',
+    borderRadius: window.innerWidth <= 768 ? '12px' : '8px',
+    border: '1px solid #E5E7EB',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    minHeight: window.innerWidth <= 768 ? '56px' : 'auto',
+    boxShadow: window.innerWidth <= 768 ? '0 2px 8px rgba(0,0,0,0.05)' : 'none',
+  },
+  checkbox: {
+    width: window.innerWidth <= 768 ? '18px' : '16px',
+    height: window.innerWidth <= 768 ? '18px' : '16px',
+    accentColor: '#667EEA',
+    cursor: 'pointer',
+    margin: 0,
+    flexShrink: 0,
+    appearance: 'auto' as const,
+    marginTop: window.innerWidth <= 768 ? '3px' : '2px',
+  },
+  customizationInfo: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    flex: 1,
+    width: '100%',
+    paddingTop: window.innerWidth <= 768 ? '2px' : '1px',
+  },
+  customizationName: {
+    fontSize: window.innerWidth <= 768 ? '1rem' : '0.9rem',
+    fontWeight: '500',
+    color: '#374151',
+    lineHeight: '1.4',
+  },
+  customizationPrice: {
+    fontSize: window.innerWidth <= 768 ? '1rem' : '0.9rem',
+    fontWeight: '600',
+    color: '#667EEA',
+    whiteSpace: 'nowrap' as const,
+  },
 };
+
+// Add mobile-specific CSS
+if (typeof document !== 'undefined') {
+  const mobileStyles = document.createElement('style');
+  mobileStyles.textContent = `
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    
+    @media (max-width: 768px) {
+      /* Prevent zoom on input focus */
+      input[type="datetime-local"],
+      input[type="tel"] {
+        font-size: 16px !important;
+      }
+      
+      /* Better touch targets */
+      .customization-item {
+        min-height: 56px !important;
+        padding: 1rem !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 0.75rem !important;
+        cursor: pointer !important;
+      }
+      
+      /* Checkbox styling */
+      .customization-item input[type="checkbox"] {
+        width: 18px !important;
+        height: 18px !important;
+        margin: 0 !important;
+        margin-top: 2px !important;
+        flex-shrink: 0 !important;
+      }
+      
+      /* Content div styling */
+      .customization-item > div {
+        flex: 1 !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        width: 100% !important;
+      }
+      
+      /* Text alignment */
+      .customization-item span {
+        line-height: 1.4 !important;
+      }
+      
+      /* Smooth animations */
+      .customization-item:active {
+        transform: scale(0.98);
+        transition: transform 0.1s ease;
+      }
+      
+      /* Better spacing for mobile */
+      .room-detail-container {
+        padding: 1rem 0.75rem !important;
+      }
+      
+      /* Improved button styling */
+      button {
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      
+      /* Better image loading */
+      img {
+        image-rendering: -webkit-optimize-contrast;
+        backface-visibility: hidden;
+      }
+    }
+  `;
+  
+  if (!document.head.querySelector('#room-detail-mobile-styles')) {
+    mobileStyles.id = 'room-detail-mobile-styles';
+    document.head.appendChild(mobileStyles);
+  }
+}
 
 export default RoomDetail;

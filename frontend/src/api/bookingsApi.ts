@@ -4,6 +4,14 @@ export interface CreateBookingData {
   roomId: number;
   startTime: string;
   endTime: string;
+  phoneNumber: string;
+  customizations?: {
+    extraBed?: boolean;
+    breakfast?: boolean;
+    airportPickup?: boolean;
+    lateCheckout?: boolean;
+    roomDecoration?: boolean;
+  };
 }
 
 export const createBooking = async (data: CreateBookingData) => {
@@ -36,3 +44,5 @@ export const updateBookingStatus = async (bookingId: number, status: string) => 
   const response = await axiosClient.patch(`/bookings/${bookingId}/status`, { status });
   return response.data;
 };
+
+

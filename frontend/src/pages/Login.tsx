@@ -6,9 +6,14 @@ import AuthNavbar from '../components/AuthNavbar';
 import AuthFooter from '../components/AuthFooter';
 import '../styles/auth-mobile.css';
 
-// Add animations
+// Add animations and fonts
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  
+  * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -199,17 +204,43 @@ const Login = () => {
     e.preventDefault();
     setError('');
 
+    // Basic validation
+    if (!email.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    if (!password.trim()) {
+      setError('Please enter your password');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
     try {
-      const response = await loginApi({ email, password });
+      const response = await loginApi({ email: email.trim().toLowerCase(), password });
       login(response.access_token, response.user);
-      
+
       if (response.user.role === 'ADMIN') {
         navigate('/admin/rooms');
       } else {
         navigate('/rooms');
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+      console.error('Login error:', err);
+
+      if (err.response?.status === 401) {
+        setError('Invalid email or password. Please check your credentials and try again.');
+      } else if (err.response?.status === 404) {
+        setError('Account not found. Please check your email or create a new account.');
+      } else if (err.response?.status >= 500) {
+        setError('Server error. Please try again later.');
+      } else {
+        setError(err.response?.data?.message || 'Login failed. Please try again.');
+      }
     }
   };
 
@@ -225,7 +256,7 @@ const Login = () => {
                 <h1 style={styles.brandLogo}>🥇 SmartStay</h1>
                 <p style={styles.brandTagline}>Experience luxury accommodations with seamless booking</p>
               </div>
-              
+
               <div style={styles.imageCard}>
                 <img
                   src="https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&q=80"
@@ -258,86 +289,87 @@ const Login = () => {
 
           {/* Right Side - Form */}
           <div style={styles.rightSide} className="auth-right-side">
-        <div style={styles.formContainer} className="auth-form-container">
-          <div style={styles.formHeader}>
-            <h2 style={styles.formTitle} className="auth-form-title">Welcome Back</h2>
-            <p style={styles.formSubtitle}>Sign in to continue to SmartStay</p>
-          </div>
-          
-          {error && <div style={styles.error}>{error}</div>}
-          
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email Address</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                placeholder="you@example.com"
-                style={styles.input}
-                className="auth-input"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = '#6C5CE7';
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108, 92, 231, 0.1)';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '#E5E7EB';
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              />
+            <div style={styles.formContainer} className="auth-form-container">
+              <div style={styles.formHeader}>
+                <h2 style={styles.formTitle} className="auth-form-title">Welcome Back</h2>
+                <p style={styles.formSubtitle}>Sign in to continue to SmartStay</p>
+              </div>
+
+              {error && <div style={styles.error}>{error}</div>}
+
+              <form onSubmit={handleSubmit} style={styles.form}>
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Email Address</label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    placeholder="you@example.com"
+                    style={styles.input}
+                    className="auth-input"
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = '#667EEA';
+                      e.currentTarget.style.backgroundColor = '#FFFFFF';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '#E5E7EB';
+                      e.currentTarget.style.backgroundColor = '#F9FAFB';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+
+                <div style={styles.formGroup}>
+                  <label style={styles.label}>Password</label>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    placeholder="Enter your password"
+                    style={styles.input}
+                    className="auth-input"
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = '#667EEA';
+                      e.currentTarget.style.backgroundColor = '#FFFFFF';
+                      e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = '#E5E7EB';
+                      e.currentTarget.style.backgroundColor = '#F9FAFB';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  style={styles.button}
+                  className="auth-button"
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.4)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
+                  }}
+                >
+                  Sign In
+                </button>
+              </form>
+
+              <div style={styles.divider}>
+                <span style={styles.dividerText}>or</span>
+              </div>
+
+
+              <p style={styles.footer}>
+                Don't have an account? <Link to="/signup" style={styles.link}>Create one now</Link>
+              </p>
             </div>
-            
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder="Enter your password"
-                style={styles.input}
-                className="auth-input"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = '#6C5CE7';
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108, 92, 231, 0.1)';
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = '#E5E7EB';
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              />
-            </div>
-            
-            <button 
-              type="submit" 
-              style={styles.button}
-              className="auth-button"
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(108, 92, 231, 0.4)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(108, 92, 231, 0.3)';
-              }}
-            >
-              Sign In
-            </button>
-          </form>
-          
-          <div style={styles.divider}>
-            <span style={styles.dividerText}>or</span>
-          </div>
-          
-          <p style={styles.footer}>
-            Don't have an account? <Link to="/signup" style={styles.link}>Create one now</Link>
-          </p>
-        </div>
           </div>
         </div>
       </div>
@@ -512,24 +544,25 @@ const styles = {
   input: {
     padding: '0.875rem 1rem',
     border: '2px solid #E5E7EB',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '1rem',
     backgroundColor: '#F9FAFB',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     outline: 'none',
+    fontFamily: 'Inter, sans-serif',
   },
   button: {
-    background: 'linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)',
+    background: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
     color: 'white',
     padding: '1rem',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '1rem',
     fontWeight: '700',
     cursor: 'pointer',
     marginTop: '0.5rem',
     transition: 'all 0.3s ease',
-    boxShadow: '0 4px 12px rgba(108, 92, 231, 0.3)',
+    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
   },
   divider: {
     position: 'relative' as const,
@@ -552,9 +585,28 @@ const styles = {
     fontSize: '0.875rem',
   },
   link: {
-    color: '#6C5CE7',
+    color: '#667EEA',
     textDecoration: 'none',
     fontWeight: '600',
+  },
+  testCredentials: {
+    backgroundColor: '#EEF2FF',
+    padding: '1rem',
+    borderRadius: '8px',
+    marginBottom: '1rem',
+    border: '1px solid #C7D2FE',
+  },
+  testTitle: {
+    fontSize: '0.875rem',
+    fontWeight: '600',
+    color: '#4F46E5',
+    margin: '0 0 0.5rem 0',
+  },
+  testInfo: {
+    fontSize: '0.8rem',
+    color: '#6B7280',
+    margin: '0.25rem 0',
+    fontFamily: 'monospace',
   },
 };
 

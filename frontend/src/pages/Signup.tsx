@@ -5,9 +5,14 @@ import AuthNavbar from '../components/AuthNavbar';
 import AuthFooter from '../components/AuthFooter';
 import '../styles/auth-mobile.css';
 
-// Add animations
+// Add animations and fonts
 const styleSheet = document.createElement("style");
 styleSheet.textContent = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+  
+  * {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  }
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -200,12 +205,40 @@ const Signup = () => {
     setError('');
     setSuccess('');
 
+    // Basic validation
+    if (!name.trim()) {
+      setError('Please enter your full name');
+      return;
+    }
+
+    if (!email.trim()) {
+      setError('Please enter your email address');
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return;
+    }
+
     try {
-      await signupApi({ name, email, password });
+      await signupApi({ 
+        name: name.trim(), 
+        email: email.trim().toLowerCase(), 
+        password 
+      });
       setSuccess('Account created successfully! Redirecting to login...');
       setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Signup failed');
+      console.error('Signup error:', err);
+      
+      if (err.response?.status === 409) {
+        setError('An account with this email already exists. Please use a different email or try logging in.');
+      } else if (err.response?.status >= 500) {
+        setError('Server error. Please try again later.');
+      } else {
+        setError(err.response?.data?.message || 'Account creation failed. Please try again.');
+      }
     }
   };
 
@@ -275,9 +308,9 @@ const Signup = () => {
                 style={styles.input}
                 className="signup-input"
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = '#6C5CE7';
+                  e.currentTarget.style.borderColor = '#667EEA';
                   e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108, 92, 231, 0.1)';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = '#E5E7EB';
@@ -298,9 +331,9 @@ const Signup = () => {
                 style={styles.input}
                 className="signup-input"
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = '#6C5CE7';
+                  e.currentTarget.style.borderColor = '#667EEA';
                   e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108, 92, 231, 0.1)';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = '#E5E7EB';
@@ -322,9 +355,9 @@ const Signup = () => {
                 style={styles.input}
                 className="signup-input"
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = '#6C5CE7';
+                  e.currentTarget.style.borderColor = '#667EEA';
                   e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(108, 92, 231, 0.1)';
+                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
                 }}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = '#E5E7EB';
@@ -340,11 +373,11 @@ const Signup = () => {
               className="signup-button"
               onMouseOver={(e) => {
                 e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(108, 92, 231, 0.4)';
+                e.currentTarget.style.boxShadow = '0 8px 25px rgba(102, 126, 234, 0.4)';
               }}
               onMouseOut={(e) => {
                 e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(108, 92, 231, 0.3)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.3)';
               }}
             >
               Create Account
@@ -542,24 +575,25 @@ const styles = {
   input: {
     padding: '0.875rem 1rem',
     border: '2px solid #E5E7EB',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '1rem',
     backgroundColor: '#F9FAFB',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     outline: 'none',
+    fontFamily: 'Inter, sans-serif',
   },
   button: {
-    background: 'linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)',
+    background: 'linear-gradient(135deg, #667EEA 0%, #764BA2 100%)',
     color: 'white',
     padding: '1rem',
     border: 'none',
-    borderRadius: '10px',
+    borderRadius: '12px',
     fontSize: '1rem',
     fontWeight: '700',
     cursor: 'pointer',
     marginTop: '0.5rem',
     transition: 'all 0.3s ease',
-    boxShadow: '0 4px 12px rgba(108, 92, 231, 0.3)',
+    boxShadow: '0 4px 15px rgba(102, 126, 234, 0.3)',
   },
   divider: {
     position: 'relative' as const,
@@ -582,7 +616,7 @@ const styles = {
     fontSize: '0.875rem',
   },
   link: {
-    color: '#6C5CE7',
+    color: '#667EEA',
     textDecoration: 'none',
     fontWeight: '600',
   },

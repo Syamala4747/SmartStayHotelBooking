@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getRooms, createRoom, updateRoom, deleteRoom } from '../api/roomsApi';
+import { getAllBookings } from '../api/bookingsApi';
 import Toast from '../components/Toast';
 
 const AdminRooms = () => {
@@ -10,6 +11,11 @@ const AdminRooms = () => {
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+  const [showBookingsModal, setShowBookingsModal] = useState(false);
+  const [selectedRoomBookings, setSelectedRoomBookings] = useState<any[]>([]);
+  const [selectedRoomNumber, setSelectedRoomNumber] = useState('');
+  const [loadingBookings, setLoadingBookings] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const [formData, setFormData] = useState({
     room_number: '',
     room_type: '',
@@ -21,6 +27,17 @@ const AdminRooms = () => {
 
   useEffect(() => {
     loadRooms();
+  }, []);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const loadRooms = async () => {
@@ -231,12 +248,12 @@ const AdminRooms = () => {
     setEditingRoom(room);
     const existingImages = Array.isArray(room.images) ? room.images : [];
     setUploadedImages(existingImages);
-    
+
     // Convert room_type array to comma-separated string
-    const roomTypeString = Array.isArray(room.room_type) 
+    const roomTypeString = Array.isArray(room.room_type)
       ? room.room_type.map((type: string) => type.replace(/_/g, ' ')).join(', ')
       : room.room_type.replace(/_/g, ' ');
-    
+
     setFormData({
       room_number: room.room_number,
       room_type: roomTypeString,
@@ -246,6 +263,55 @@ const AdminRooms = () => {
       images: '',
     });
     setShowForm(true);
+  };
+
+  const handleViewBookings = async (roomId: number, roomNumber: string) => {
+    setLoadingBookings(true);
+    setSelectedRoomNumber(roomNumber);
+    setShowBookingsModal(true);
+
+    try {
+      console.log(`🔍 Frontend: Requesting bookings for room ${roomId}`);
+      // Use getAllBookings and filter for the room (same data as "All Bookings" page)
+      const allBookings = await getAllBookings();
+      const bookings = allBookings.filter((booking: any) =>
+        booking.room?.id === roomId || booking.room?.room_number === roomNumber
+      );
+      console.log(`🔍 Filtered ${bookings.length} bookings for room ${roomNumber} from ${allBookings.length} total`);
+
+      console.log('🔍 Frontend: Complete API response:', JSON.stringify(bookings, null, 2));
+
+      // Compare with what getAllBookings would return
+      console.log('� Frontend: Ddetailed booking analysis:');
+      if (bookings && bookings.length > 0) {
+        bookings.forEach((booking: any, index: number) => {
+          console.log(`📋 Booking ${index + 1}:`, {
+            id: booking.id,
+            has_user_object: !!booking.user,
+            user_object_keys: booking.user ? Object.keys(booking.user) : 'NO USER OBJECT',
+            user_name: booking.user?.name,
+            user_email: booking.user?.email,
+            user_id: booking.user?.id,
+            room_id: booking.room?.id,
+            room_number: booking.room?.room_number,
+            start_time: booking.start_time
+          });
+        });
+      } else {
+        console.log('❌ No bookings returned or empty array');
+      }
+
+      setSelectedRoomBookings(bookings || []);
+    } catch (error) {
+      console.error('Failed to load room bookings', error);
+      setSelectedRoomBookings([]);
+      setToast({
+        message: 'Failed to load bookings for this room',
+        type: 'error'
+      });
+    } finally {
+      setLoadingBookings(false);
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -259,6 +325,22 @@ const AdminRooms = () => {
     }
   };
 
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'CONFIRMED':
+        return { bg: '#E0F2FE', color: '#0369A1' };
+      case 'CHECKED_IN':
+        return { bg: '#D1FAE5', color: '#047857' };
+      case 'CHECKED_OUT':
+        return { bg: '#E9D5FF', color: '#7C3AED' };
+      case 'CANCELLED':
+        return { bg: '#FECACA', color: '#B91C1C' };
+      case 'UNKNOWN':
+      default:
+        return { bg: '#F3F4F6', color: '#6B7280' };
+    }
+  };
+
   return (
     <div style={styles.wrapper}>
       {toast && (
@@ -267,6 +349,442 @@ const AdminRooms = () => {
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* Room Bookings Modal */}
+      {showBookingsModal && (
+        <div style={styles.modalOverlay} onClick={() => setShowBookingsModal(false)}>
+          <div style={styles.bookingsModal} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.modalHeader}>
+              <h2>Room {selectedRoomNumber} - Booked Time Slots</h2>
+              <button
+                onClick={() => setShowBookingsModal(false)}
+                style={styles.closeButton}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={styles.modalContent}>
+              {loadingBookings ? (
+                <div style={styles.loadingContainer}>
+                  <div style={styles.loadingSpinner}></div>
+                  <p>Loading bookings...</p>
+                </div>
+              ) : selectedRoomBookings.length === 0 ? (
+                <div style={styles.emptyBookings}>
+                  <div style={styles.emptyIcon}>📅</div>
+                  <h3>No Booked Slots</h3>
+                  <p>This room has no time slots booked yet.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Desktop Table View */}
+                  {!isMobile && (
+                    <div style={styles.bookingsTable}>
+                      <table style={styles.table} className="bookings-table">
+                        <thead>
+                          <tr style={styles.headerRow}>
+                            <th style={styles.th}>Guest</th>
+                            <th style={styles.th}>Phone</th>
+                            <th style={styles.th}>Add-ons</th>
+                            <th style={styles.th}>Check-in</th>
+                            <th style={styles.th}>Check-out</th>
+                            <th style={styles.th}>Duration</th>
+                            <th style={styles.th}>Status</th>
+                            <th style={styles.th}>Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(selectedRoomBookings || []).filter(booking => booking && booking.id).map((booking) => {
+                            const startDate = booking.start_time ? new Date(booking.start_time) : new Date();
+                            const endDate = booking.end_time ? new Date(booking.end_time) : new Date();
+                            const durationHours = booking.duration_hours || Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+                            const statusColors = getStatusColor(booking.status || 'UNKNOWN');
+
+                            // Debug: Log what's actually in the booking object
+                            console.log(`🔍 Booking ${booking.id} complete object:`, booking);
+                            console.log(`🔍 Booking ${booking.id} user object:`, booking.user);
+                            console.log(`🔍 Booking ${booking.id} all properties:`, Object.keys(booking));
+
+                            return (
+                              <tr key={booking.id} style={styles.bookingRow}>
+                                <td style={styles.td}>
+                                  <div>
+                                    <div style={styles.guestName} className="guest-name">
+                                      {booking.user?.name || booking.userName}
+                                    </div>
+                                    <div style={styles.guestEmail}>
+                                      {booking.user?.email || booking.userEmail}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <div style={styles.phoneCell}>
+                                    📱 {booking.phone_number || 'Not provided'}
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <div style={styles.customizationsCell}>
+                                    {booking.customizations && Object.entries(booking.customizations)
+                                      .filter(([_, selected]) => selected)
+                                      .map(([key, _]) => (
+                                        <span key={key} style={styles.customizationTag}>
+                                          {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                                        </span>
+                                      ))}
+                                    {(!booking.customizations || Object.values(booking.customizations).every(v => !v)) && (
+                                      <span style={styles.noCustomizations}>None</span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <div>
+                                    <div>{startDate.toLocaleDateString() || 'Invalid Date'}</div>
+                                    <div style={styles.timeText}>{startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || '--:--'}</div>
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <div>
+                                    <div>{endDate.toLocaleDateString() || 'Invalid Date'}</div>
+                                    <div style={styles.timeText}>{endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) || '--:--'}</div>
+                                  </div>
+                                </td>
+                                <td style={styles.td}>
+                                  <span style={styles.duration}>{durationHours}h</span>
+                                </td>
+                                <td style={styles.td}>
+                                  <span style={{
+                                    ...styles.statusBadge,
+                                    backgroundColor: statusColors.bg,
+                                    color: statusColors.color,
+                                  }}>
+                                    {booking.status}
+                                  </span>
+                                </td>
+                                <td style={styles.td}>
+                                  <span style={styles.revenue}>₹{booking.total_cost || 'N/A'}</span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Mobile Card View */}
+                  {isMobile && (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem',
+                      padding: '0.5rem',
+                    }}>
+                      {(selectedRoomBookings || []).filter(booking => booking && booking.id).map((booking) => {
+                        const startDate = booking.start_time ? new Date(booking.start_time) : new Date();
+                        const endDate = booking.end_time ? new Date(booking.end_time) : new Date();
+                        const durationHours = booking.duration_hours || Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+                        const statusColors = getStatusColor(booking.status || 'UNKNOWN');
+
+                        return (
+                          <div key={booking.id} style={{
+                            backgroundColor: 'white',
+                            borderRadius: '16px',
+                            padding: '1.25rem',
+                            border: '1px solid #E5E7EB',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            marginBottom: '0.75rem',
+                          }}>
+                            {/* Booking ID Header */}
+                            <div style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '1rem',
+                              paddingBottom: '0.75rem',
+                              borderBottom: '2px solid #F3F4F6',
+                            }}>
+                              <div style={{
+                                fontSize: '1rem',
+                                fontWeight: '700',
+                                color: '#6366F1',
+                                backgroundColor: '#EEF2FF',
+                                padding: '0.5rem 1rem',
+                                borderRadius: '20px',
+                                border: '1px solid #C7D2FE',
+                              }}>
+                                #{booking.id}
+                              </div>
+                              <div style={{
+                                padding: '0.5rem 1rem',
+                                borderRadius: '20px',
+                                fontSize: '0.85rem',
+                                fontWeight: '700',
+                                textAlign: 'center',
+                                backgroundColor: statusColors.bg,
+                                color: statusColors.color,
+                                minWidth: '80px',
+                              }}>
+                                {booking.status}
+                              </div>
+                            </div>
+
+                            {/* Guest Information */}
+                            <div style={{
+                              backgroundColor: '#F8FAFC',
+                              padding: '1rem',
+                              borderRadius: '12px',
+                              marginBottom: '1rem',
+                              border: '1px solid #E2E8F0',
+                            }}>
+                              <div style={{
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                color: '#475569',
+                                marginBottom: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                              }}>
+                                👤 Guest Information
+                              </div>
+                              <div style={{
+                                fontSize: '1.1rem',
+                                fontWeight: '700',
+                                color: '#1F2937',
+                                marginBottom: '0.5rem',
+                              }}>
+                                {booking.user?.name || booking.userName || 'Guest User'}
+                              </div>
+                              <div style={{
+                                fontSize: '0.95rem',
+                                color: '#6B7280',
+                                marginBottom: '0.5rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                              }}>
+                                � {booking.user?.email || booking.userEmail || 'No email provided'}
+                              </div>
+                              <div style={{
+                                fontSize: '0.95rem',
+                                color: '#374151',
+                                fontWeight: '500',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                              }}>
+                                📱 {booking.phone_number || 'No phone provided'}
+                              </div>
+                            </div>
+
+                            {/* Booking Times */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr',
+                              gap: '0.75rem',
+                              marginBottom: '1rem',
+                            }}>
+                              {/* Check-in */}
+                              <div style={{
+                                backgroundColor: '#F0FDF4',
+                                padding: '1rem',
+                                borderRadius: '12px',
+                                border: '1px solid #BBF7D0',
+                                textAlign: 'center',
+                              }}>
+                                <div style={{
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  color: '#059669',
+                                  marginBottom: '0.5rem',
+                                }}>
+                                  📅 CHECK-IN
+                                </div>
+                                <div style={{
+                                  fontSize: '0.9rem',
+                                  fontWeight: '600',
+                                  color: '#1F2937',
+                                  marginBottom: '0.25rem',
+                                }}>
+                                  {startDate.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </div>
+                                <div style={{
+                                  fontSize: '1rem',
+                                  color: '#059669',
+                                  fontWeight: '700',
+                                }}>
+                                  {startDate.toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Check-out */}
+                              <div style={{
+                                backgroundColor: '#FEF2F2',
+                                padding: '1rem',
+                                borderRadius: '12px',
+                                border: '1px solid #FECACA',
+                                textAlign: 'center',
+                              }}>
+                                <div style={{
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  color: '#DC2626',
+                                  marginBottom: '0.5rem',
+                                }}>
+                                  📅 CHECK-OUT
+                                </div>
+                                <div style={{
+                                  fontSize: '0.9rem',
+                                  fontWeight: '600',
+                                  color: '#1F2937',
+                                  marginBottom: '0.25rem',
+                                }}>
+                                  {endDate.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric'
+                                  })}
+                                </div>
+                                <div style={{
+                                  fontSize: '1rem',
+                                  color: '#DC2626',
+                                  fontWeight: '700',
+                                }}>
+                                  {endDate.toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Duration and Revenue */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr',
+                              gap: '0.75rem',
+                              marginBottom: '1rem',
+                            }}>
+                              <div style={{
+                                backgroundColor: '#F0F9FF',
+                                padding: '1rem',
+                                borderRadius: '12px',
+                                border: '1px solid #BAE6FD',
+                                textAlign: 'center',
+                              }}>
+                                <div style={{
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  color: '#0369A1',
+                                  marginBottom: '0.5rem',
+                                }}>
+                                  ⏱️ DURATION
+                                </div>
+                                <div style={{
+                                  fontSize: '1.5rem',
+                                  fontWeight: '800',
+                                  color: '#0284C7',
+                                }}>
+                                  {durationHours}h
+                                </div>
+                              </div>
+
+                              <div style={{
+                                backgroundColor: '#F0FDF4',
+                                padding: '1rem',
+                                borderRadius: '12px',
+                                border: '1px solid #BBF7D0',
+                                textAlign: 'center',
+                              }}>
+                                <div style={{
+                                  fontSize: '0.8rem',
+                                  fontWeight: '600',
+                                  color: '#059669',
+                                  marginBottom: '0.5rem',
+                                }}>
+                                  💰 REVENUE
+                                </div>
+                                <div style={{
+                                  fontSize: '1.5rem',
+                                  fontWeight: '800',
+                                  color: '#059669',
+                                }}>
+                                  ₹{booking.total_cost || 'N/A'}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Add-ons Section */}
+                            <div style={{
+                              backgroundColor: '#FEFCE8',
+                              padding: '1rem',
+                              borderRadius: '12px',
+                              border: '1px solid #FEF08A',
+                            }}>
+                              <div style={{
+                                fontSize: '0.85rem',
+                                fontWeight: '600',
+                                color: '#CA8A04',
+                                marginBottom: '0.75rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                              }}>
+                                🎯 Add-ons & Customizations
+                              </div>
+                              {booking.customizations && Object.entries(booking.customizations).filter(([_, selected]) => selected).length > 0 ? (
+                                <div style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '0.5rem',
+                                }}>
+                                  {Object.entries(booking.customizations)
+                                    .filter(([_, selected]) => selected)
+                                    .map(([key, _]) => (
+                                      <span key={key} style={{
+                                        padding: '0.5rem 0.75rem',
+                                        backgroundColor: '#EEF2FF',
+                                        color: '#6366F1',
+                                        borderRadius: '16px',
+                                        fontSize: '0.85rem',
+                                        fontWeight: '600',
+                                        border: '1px solid #C7D2FE',
+                                      }}>
+                                        {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                                      </span>
+                                    ))}
+                                </div>
+                              ) : (
+                                <div style={{
+                                  fontSize: '0.9rem',
+                                  color: '#6B7280',
+                                  fontStyle: 'italic',
+                                  textAlign: 'center',
+                                  padding: '0.5rem',
+                                }}>
+                                  No add-ons selected
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Hero Section */}
@@ -279,26 +797,30 @@ const AdminRooms = () => {
           <p style={styles.heroDesc} className="dashboard-hero-desc">
             Create, edit, and manage all hotel rooms from one central dashboard
           </p>
-          <button
-            onClick={() => {
-              setShowForm(!showForm);
-              setEditingRoom(null);
-              setSelectedFiles([]);
-              setUploadedImages([]);
-              setFormData({
-                room_number: '',
-                room_type: '',
-                cost: '',
-                capacity: '',
-                description: '',
-                images: '',
-              });
-            }}
-            style={styles.addButton}
-            className="dashboard-add-button"
-          >
-            {showForm ? '✕ Cancel' : '+ Add New Room'}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => {
+                setShowForm(!showForm);
+                setEditingRoom(null);
+                setSelectedFiles([]);
+                setUploadedImages([]);
+                setFormData({
+                  room_number: '',
+                  room_type: '',
+                  cost: '',
+                  capacity: '',
+                  description: '',
+                  images: '',
+                });
+              }}
+              style={styles.addButton}
+              className="dashboard-add-button"
+            >
+              {showForm ? '✕ Cancel' : '+ Add New Room'}
+            </button>
+
+
+          </div>
         </div>
       </section>
 
@@ -406,9 +928,9 @@ const AdminRooms = () => {
                       <div style={styles.imagePreview}>
                         {uploadedImages.map((url, idx) => (
                           <div key={idx} style={styles.imageWrapper}>
-                            <img 
-                              src={url} 
-                              alt={`Upload ${idx}`} 
+                            <img
+                              src={url}
+                              alt={`Upload ${idx}`}
                               style={styles.previewImg}
                               loading="lazy"
                               decoding="async"
@@ -448,7 +970,7 @@ const AdminRooms = () => {
           )}
 
           {/* Mobile Card View */}
-          {window.innerWidth <= 768 ? (
+          {isMobile ? (
             <div style={styles.mobileCardsContainer}>
               {rooms.map((room) => (
                 <div key={room.id} style={styles.mobileCard}>
@@ -460,7 +982,7 @@ const AdminRooms = () => {
                       <span style={styles.inactive}>Inactive</span>
                     )}
                   </div>
-                  
+
                   <div style={styles.mobileCardBody}>
                     <div style={styles.mobileInfoRow}>
                       <span style={styles.mobileLabel}>Type:</span>
@@ -470,32 +992,53 @@ const AdminRooms = () => {
                           : room.room_type}
                       </span>
                     </div>
-                    
+
                     <div style={styles.mobileInfoRow}>
                       <span style={styles.mobileLabel}>Cost:</span>
                       <span style={styles.mobileValue}>₹{room.cost}</span>
                     </div>
-                    
+
                     <div style={styles.mobileInfoRow}>
                       <span style={styles.mobileLabel}>Capacity:</span>
                       <span style={styles.mobileValue}>👥 {room.capacity}</span>
                     </div>
                   </div>
-                  
+
                   <div style={styles.mobileCardActions}>
+                    <button
+                      onClick={() => handleViewBookings(room.id, room.room_number)}
+                      style={styles.viewBookingsButton}
+                      title="View Booked Slots"
+                    >
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M8 2v4"></path>
+                        <path d="M16 2v4"></path>
+                        <rect width="18" height="18" x="3" y="4" rx="2"></rect>
+                        <path d="M3 10h18"></path>
+                      </svg>
+                    </button>
                     <button
                       onClick={() => handleEdit(room)}
                       style={styles.editButton}
                       title="Edit"
                     >
-                      <svg 
-                        width="18" 
-                        height="18" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
                         strokeLinejoin="round"
                       >
                         <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -507,14 +1050,14 @@ const AdminRooms = () => {
                       style={styles.deleteButton}
                       title="Delete"
                     >
-                      <svg 
-                        width="18" 
-                        height="18" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
                         strokeLinejoin="round"
                       >
                         <polyline points="3 6 5 6 21 6"></polyline>
@@ -560,46 +1103,69 @@ const AdminRooms = () => {
                         )}
                       </td>
                       <td style={styles.td}>
-                        <button
-                          onClick={() => handleEdit(room)}
-                          style={styles.editButton}
-                          title="Edit"
-                        >
-                          <svg 
-                            width="18" 
-                            height="18" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
+                        <div style={styles.actionButtonsContainer}>
+                          <button
+                            onClick={() => handleViewBookings(room.id, room.room_number)}
+                            style={styles.viewBookingsButton}
+                            title="View Booked Slots"
                           >
-                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(room.id)}
-                          style={styles.deleteButton}
-                          title="Delete"
-                        >
-                          <svg 
-                            width="18" 
-                            height="18" 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M8 2v4"></path>
+                              <path d="M16 2v4"></path>
+                              <rect width="18" height="18" x="3" y="4" rx="2"></rect>
+                              <path d="M3 10h18"></path>
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleEdit(room)}
+                            style={styles.editButton}
+                            title="Edit Room"
                           >
-                            <polyline points="3 6 5 6 21 6"></polyline>
-                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                            <line x1="10" y1="11" x2="10" y2="17"></line>
-                            <line x1="14" y1="11" x2="14" y2="17"></line>
-                          </svg>
-                        </button>
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(room.id)}
+                            style={styles.deleteButton}
+                            title="Delete Room"
+                          >
+                            <svg
+                              width="18"
+                              height="18"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <polyline points="3 6 5 6 21 6"></polyline>
+                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                              <line x1="10" y1="11" x2="10" y2="17"></line>
+                              <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -739,27 +1305,31 @@ const styles = {
   },
   table: {
     width: '100%',
-    minWidth: window.innerWidth <= 768 ? '800px' : 'auto',
+    minWidth: window.innerWidth <= 768 ? '600px' : 'auto',
     borderCollapse: 'collapse' as const,
+    fontSize: window.innerWidth <= 768 ? '0.8rem' : '1rem',
   },
   headerRow: {
     background: 'linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)',
     color: 'white',
   },
   th: {
-    padding: '1.2rem',
+    padding: window.innerWidth <= 768 ? '0.75rem 0.5rem' : '1.2rem',
     textAlign: 'left' as const,
     fontWeight: '700',
-    fontSize: '1rem',
+    fontSize: window.innerWidth <= 768 ? '0.8rem' : '1rem',
+    backgroundColor: window.innerWidth <= 768 ? '#6C5CE7' : 'transparent',
+    color: window.innerWidth <= 768 ? 'white' : 'inherit',
   },
   row: {
     borderBottom: '2px solid #f0f0f0',
     transition: 'background 0.2s',
   },
   td: {
-    padding: '1.2rem',
+    padding: window.innerWidth <= 768 ? '0.75rem 0.5rem' : '1.2rem',
     color: '#2c3e50',
-    fontSize: '0.95rem',
+    fontSize: window.innerWidth <= 768 ? '0.8rem' : '0.95rem',
+    lineHeight: window.innerWidth <= 768 ? '1.4' : '1.2',
   },
   active: {
     color: '#51cf66',
@@ -771,35 +1341,8 @@ const styles = {
     fontWeight: 'bold',
     fontSize: '1rem',
   },
-  editButton: {
-    backgroundColor: 'transparent',
-    color: '#6C5CE7',
-    padding: '0.5rem',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    marginRight: '0.5rem',
-    fontWeight: '600',
-    fontSize: '0.9rem',
-    transition: 'all 0.3s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deleteButton: {
-    backgroundColor: 'transparent',
-    color: '#DC2626',
-    padding: '0.5rem',
-    border: 'none',
-    borderRadius: '8px',
-    cursor: 'pointer',
-    fontWeight: '600',
-    fontSize: '0.9rem',
-    transition: 'all 0.3s',
-    display: 'inline-flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+
+
 
   imageLabel: {
     fontSize: '1.1rem',
@@ -873,28 +1416,218 @@ const styles = {
   },
   removeBtn: {
     position: 'absolute' as const,
-    top: '-8px',
-    right: '-8px',
-    width: '28px',
-    height: '28px',
-    borderRadius: '50%',
+    top: '5px',
+    right: '5px',
     backgroundColor: '#EF4444',
     color: 'white',
-    border: '2px solid white',
+    border: 'none',
+    borderRadius: '50%',
+    width: '24px',
+    height: '24px',
     cursor: 'pointer',
-    fontSize: '0.9rem',
-    fontWeight: '700',
+    fontSize: '0.8rem',
+    fontWeight: 'bold',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
     transition: 'all 0.2s',
+  },
+
+  // Modal styles
+  modalOverlay: {
+    position: 'fixed' as const,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10000,
+  },
+  bookingsModal: {
+    backgroundColor: 'white',
+    borderRadius: window.innerWidth <= 768 ? '12px' : '16px',
+    width: window.innerWidth <= 768 ? '95%' : '90%',
+    maxWidth: window.innerWidth <= 768 ? '100%' : '1000px',
+    maxHeight: window.innerWidth <= 768 ? '90vh' : '80vh',
+    overflow: 'hidden',
+    boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+  },
+  modalHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: window.innerWidth <= 768 ? '1rem 1.25rem' : '1.5rem 2rem',
+    borderBottom: '1px solid #E5E7EB',
+    background: 'linear-gradient(135deg, #6C5CE7 0%, #A29BFE 100%)',
+    color: 'white',
+    fontSize: window.innerWidth <= 768 ? '1rem' : '1.25rem',
+  },
+  closeButton: {
+    background: 'none',
+    border: 'none',
+    color: 'white',
+    fontSize: '1.5rem',
+    cursor: 'pointer',
+    padding: '0.5rem',
+    borderRadius: '50%',
+    transition: 'background-color 0.2s',
+  },
+  modalContent: {
+    padding: window.innerWidth <= 768 ? '1rem' : '2rem',
+    maxHeight: window.innerWidth <= 768 ? '70vh' : '60vh',
+    overflow: 'auto',
+  },
+  loadingContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: '3rem',
+  },
+  loadingSpinner: {
+    width: '40px',
+    height: '40px',
+    border: '4px solid #E5E7EB',
+    borderTop: '4px solid #6C5CE7',
+    borderRadius: '50%',
+    animation: 'spin 1s linear infinite',
+    marginBottom: '1rem',
+  },
+  emptyBookings: {
+    textAlign: 'center' as const,
+    padding: '3rem',
+  },
+  emptyIcon: {
+    fontSize: '3rem',
+    marginBottom: '1rem',
+  },
+  bookingsTable: {
+    overflow: 'auto',
+    WebkitOverflowScrolling: 'touch' as const,
+  },
+  bookingRow: {
+    borderBottom: '1px solid #F3F4F6',
+  },
+  guestName: {
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  guestEmail: {
+    fontSize: '0.8rem',
+    color: '#6B7280',
+  },
+  phoneCell: {
+    fontSize: '0.85rem',
+    color: '#374151',
+    fontWeight: '500',
+  },
+  customizationsCell: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.25rem',
+    maxWidth: '120px',
+  },
+  customizationTag: {
+    padding: '0.25rem 0.5rem',
+    backgroundColor: '#EEF2FF',
+    color: '#4F46E5',
+    borderRadius: '12px',
+    fontSize: '0.75rem',
+    fontWeight: '500',
+    textAlign: 'center' as const,
+    whiteSpace: 'nowrap' as const,
+  },
+  noCustomizations: {
+    fontSize: '0.8rem',
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
+  timeText: {
+    fontSize: '0.8rem',
+    color: '#6B7280',
+  },
+  duration: {
+    fontWeight: '600',
+    color: '#6C5CE7',
+  },
+  statusBadge: {
+    padding: '0.25rem 0.75rem',
+    borderRadius: '12px',
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    textTransform: 'capitalize' as const,
+  },
+  revenue: {
+    fontWeight: '700',
+    color: '#059669',
+  },
+  viewBookingsButton: {
+    backgroundColor: 'transparent',
+    color: '#059669',
+    padding: '0.6rem',
+    border: '1px solid #059669',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '0.85rem',
+    transition: 'all 0.3s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+  },
+  editButton: {
+    backgroundColor: 'transparent',
+    color: '#6C5CE7',
+    padding: '0.6rem',
+    border: '1px solid #6C5CE7',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '0.85rem',
+    transition: 'all 0.3s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+  },
+  deleteButton: {
+    backgroundColor: 'transparent',
+    color: '#DC2626',
+    padding: '0.6rem',
+    border: '1px solid #DC2626',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontWeight: '600',
+    fontSize: '0.85rem',
+    transition: 'all 0.3s',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '36px',
+    height: '36px',
+  },
+  actionButtonsContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+    justifyContent: 'flex-start',
+  },
+  buttonText: {
+    fontSize: '0.8rem',
+    fontWeight: '600',
   },
   // Mobile Card Styles
   mobileCardsContainer: {
     display: 'flex',
     flexDirection: 'column' as const,
     gap: '1rem',
+    padding: '0.5rem',
   },
   mobileCard: {
     backgroundColor: 'white',
@@ -932,8 +1665,8 @@ const styles = {
   mobileLabel: {
     fontSize: '0.9rem',
     fontWeight: '600',
-    color: '#6B7280',
-    minWidth: '80px',
+    color: '#374151',
+    minWidth: '100px',
   },
   mobileValue: {
     fontSize: '0.9rem',
@@ -945,10 +1678,380 @@ const styles = {
   mobileCardActions: {
     display: 'flex',
     justifyContent: 'flex-end',
-    gap: '1rem',
+    gap: '0.5rem',
     paddingTop: '0.75rem',
     borderTop: '1px solid #F3F4F6',
   },
+  mobileBookingCard: {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '1.25rem',
+    border: '1px solid #E5E7EB',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+  },
+  mobileGuestInfo: {
+    flex: 1,
+  },
+  mobileGuestName: {
+    fontSize: '1.1rem',
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: '0.25rem',
+  },
+  mobileGuestEmail: {
+    fontSize: '0.9rem',
+    color: '#6B7280',
+  },
+  mobileStatusBadge: {
+    padding: '0.375rem 0.75rem',
+    borderRadius: '20px',
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    textAlign: 'center' as const,
+  },
+  mobileInfoGrid: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.75rem',
+  },
+  mobileInfoItem: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    padding: '0.5rem 0',
+    borderBottom: '1px solid #F9FAFB',
+  },
+  mobileInfoLabel: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#374151',
+    minWidth: '100px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  mobileInfoValue: {
+    fontSize: '0.9rem',
+    color: '#1F2937',
+    textAlign: 'right' as const,
+    flex: 1,
+    fontWeight: '500',
+  },
+  mobileRevenue: {
+    fontSize: '1rem',
+    fontWeight: '700',
+    color: '#059669',
+  },
+  mobileAddons: {
+    marginTop: '0.75rem',
+    paddingTop: '0.75rem',
+    borderTop: '1px solid #F3F4F6',
+  },
+  mobileAddonsList: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: '0.5rem',
+    marginTop: '0.5rem',
+  },
+  mobileAddonTag: {
+    padding: '0.25rem 0.75rem',
+    backgroundColor: '#EEF2FF',
+    color: '#6366F1',
+    borderRadius: '12px',
+    fontSize: '0.8rem',
+    fontWeight: '500',
+  }
+
 };
+
+// Add mobile-specific CSS for better readability
+if (typeof document !== 'undefined') {
+  const mobileBookingStyles = document.createElement('style');
+  mobileBookingStyles.textContent = `
+    @media (max-width: 768px) {
+      /* Hide table on mobile */
+      .desktop-table-view {
+        display: none !important;
+      }
+      
+      /* Show mobile cards */
+      .mobile-cards-view {
+        display: block !important;
+      }
+      
+      /* Mobile booking card styling */
+      .mobile-booking-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border: 1px solid #E5E7EB;
+      }
+      
+      .mobile-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 1px solid #F3F4F6;
+      }
+      
+      .mobile-guest-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1F2937;
+        margin-bottom: 0.25rem;
+      }
+      
+      .mobile-guest-email {
+        font-size: 0.9rem;
+        color: #6B7280;
+      }
+      
+      .mobile-status-badge {
+        padding: 0.375rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-align: center;
+      }
+      
+      .mobile-info-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.75rem;
+      }
+      
+      .mobile-info-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+      }
+      
+      .mobile-info-label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      
+      .mobile-info-value {
+        font-size: 0.9rem;
+        color: #1F2937;
+        text-align: right;
+        font-weight: 500;
+      }
+      
+      .mobile-revenue {
+        font-size: 1rem;
+        font-weight: 700;
+        color: #059669;
+      }
+      
+      .mobile-addons {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px solid #F3F4F6;
+      }
+      
+      .mobile-addons-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+      }
+      
+      .mobile-addon-tag {
+        padding: 0.25rem 0.75rem;
+        background: #EEF2FF;
+        color: #6366F1;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-weight: 500;
+      }
+    }
+    
+    @media (min-width: 769px) {
+      /* Hide mobile cards on desktop */
+      .mobile-cards-view {
+        display: none !important;
+      }
+      
+      /* Show table on desktop */
+      .desktop-table-view {
+        display: block !important;
+      }
+    }
+  `;
+
+  if (!document.head.querySelector('#mobile-booking-styles')) {
+    mobileBookingStyles.id = 'mobile-booking-styles';
+    document.head.appendChild(mobileBookingStyles);
+  }
+}
+
+// Add enhanced mobile CSS for better mobile experience
+if (typeof document !== 'undefined') {
+  const adminMobileStyles = document.createElement('style');
+  adminMobileStyles.textContent = `
+    @media (max-width: 768px) {
+      /* Make modal more mobile friendly */
+      .bookings-modal {
+        width: 98% !important;
+        height: 95vh !important;
+        max-height: 95vh !important;
+        border-radius: 12px !important;
+        margin: 1% !important;
+      }
+      
+      /* Modal content scrolling */
+      .modal-content {
+        padding: 1rem !important;
+        max-height: 80vh !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+      
+      /* Hide desktop table on mobile */
+      .desktop-table-view {
+        display: none !important;
+      }
+      
+      /* Show mobile cards */
+      .mobile-cards-view {
+        display: block !important;
+      }
+      
+      /* Mobile booking cards */
+      .mobile-booking-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border: 1px solid #E5E7EB;
+      }
+      
+      /* Improve table for mobile (fallback) */
+      .bookings-table-container {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        padding: 0.5rem !important;
+      }
+      
+      .bookings-table {
+        min-width: 700px !important;
+        font-size: 0.8rem !important;
+      }
+      
+      .bookings-table th {
+        padding: 0.75rem 0.5rem !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important;
+        background: #667EEA !important;
+        color: white !important;
+        font-weight: 600 !important;
+      }
+      
+      .bookings-table td {
+        padding: 0.75rem 0.5rem !important;
+        font-size: 0.8rem !important;
+        white-space: nowrap !important;
+        vertical-align: top !important;
+        line-height: 1.4 !important;
+      }
+      
+      /* Better guest info */
+      .guest-name {
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: #1F2937 !important;
+        margin-bottom: 0.25rem !important;
+      }
+      
+      .guest-email {
+        font-size: 0.75rem !important;
+        color: #6B7280 !important;
+      }
+      
+      /* Phone display */
+      .phone-cell {
+        font-size: 0.8rem !important;
+        color: #374151 !important;
+      }
+      
+      /* Customization tags */
+      .customization-tag {
+        font-size: 0.65rem !important;
+        padding: 0.25rem 0.5rem !important;
+        margin: 0.125rem !important;
+        display: inline-block !important;
+        background: #EEF2FF !important;
+        color: #6366F1 !important;
+        border-radius: 8px !important;
+      }
+      
+      /* Status badges */
+      .status-badge {
+        font-size: 0.7rem !important;
+        padding: 0.25rem 0.5rem !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+      }
+      
+      /* Revenue */
+      .revenue {
+        font-weight: 700 !important;
+        color: #059669 !important;
+        font-size: 0.85rem !important;
+      }
+      
+      /* Duration */
+      .duration {
+        font-weight: 600 !important;
+        color: #0284C7 !important;
+        font-size: 0.8rem !important;
+      }
+      
+      /* Time text */
+      .time-text {
+        font-size: 0.7rem !important;
+        color: #6B7280 !important;
+      }
+      
+      /* Mobile card animations */
+      .mobile-booking-card {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      
+      .mobile-booking-card:active {
+        transform: scale(0.98);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+    }
+    
+    @media (min-width: 769px) {
+      /* Hide mobile cards on desktop */
+      .mobile-cards-view {
+        display: none !important;
+      }
+      
+      /* Show desktop table */
+      .desktop-table-view {
+        display: block !important;
+      }
+    }
+  `;
+
+  if (!document.head.querySelector('#admin-mobile-styles')) {
+    adminMobileStyles.id = 'admin-mobile-styles';
+    document.head.appendChild(adminMobileStyles);
+  }
+}
 
 export default AdminRooms;

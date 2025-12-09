@@ -7,6 +7,7 @@ const AdminBookings = () => {
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showConfirm, setShowConfirm] = useState<{ bookingId: number; roomNumber: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('all');
 
   useEffect(() => {
     loadBookings();
@@ -78,15 +79,28 @@ const AdminBookings = () => {
   };
 
   // Memoized calculations - MUST be before any early returns
+  const categorizedBookings = useMemo(() => {
+    const categories = {
+      all: bookings,
+      confirmed: bookings.filter(b => b.status === 'CONFIRMED'),
+      checkedIn: bookings.filter(b => b.status === 'CHECKED_IN'),
+      checkedOut: bookings.filter(b => b.status === 'CHECKED_OUT'),
+      cancelled: bookings.filter(b => b.status === 'CANCELLED'),
+    };
+
+    return categories;
+  }, [bookings]);
+
   const filteredBookings = useMemo(() => {
-    if (!searchQuery) return bookings;
+    const currentBookings = categorizedBookings[activeTab as keyof typeof categorizedBookings] || [];
+    if (!searchQuery) return currentBookings;
     const query = searchQuery.toLowerCase();
-    return bookings.filter(booking => 
+    return currentBookings.filter(booking => 
       booking.user?.name?.toLowerCase().includes(query) ||
       booking.user?.email?.toLowerCase().includes(query) ||
       booking.room?.room_number?.toString().includes(query)
     );
-  }, [bookings, searchQuery]);
+  }, [categorizedBookings, activeTab, searchQuery]);
 
   const totalRevenue = useMemo(() => {
     return bookings.reduce((total, booking) => {
@@ -211,9 +225,61 @@ const AdminBookings = () => {
       {/* Content Section */}
       <section style={styles.contentSection} className="dashboard-content-section">
         <div style={styles.container}>
-          {/* Search Bar - Always visible */}
+          {/* Booking Categories Tabs */}
           {bookings.length > 0 && (
-            <div style={styles.searchContainer}>
+            <>
+              <div style={styles.tabsContainer}>
+                <div style={styles.tabs}>
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    style={{
+                      ...styles.tab,
+                      ...(activeTab === 'all' ? styles.activeTab : {}),
+                    }}
+                  >
+                    All Bookings ({categorizedBookings.all.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('confirmed')}
+                    style={{
+                      ...styles.tab,
+                      ...(activeTab === 'confirmed' ? styles.activeTab : {}),
+                    }}
+                  >
+                    Confirmed ({categorizedBookings.confirmed.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('checkedIn')}
+                    style={{
+                      ...styles.tab,
+                      ...(activeTab === 'checkedIn' ? styles.activeTab : {}),
+                    }}
+                  >
+                    Checked-In ({categorizedBookings.checkedIn.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('checkedOut')}
+                    style={{
+                      ...styles.tab,
+                      ...(activeTab === 'checkedOut' ? styles.activeTab : {}),
+                    }}
+                  >
+                    Checked-Out ({categorizedBookings.checkedOut.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('cancelled')}
+                    style={{
+                      ...styles.tab,
+                      ...(activeTab === 'cancelled' ? styles.activeTab : {}),
+                    }}
+                  >
+                    Cancelled ({categorizedBookings.cancelled.length})
+                  </button>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div style={styles.searchContainer}>
                 <div 
                   style={styles.searchBox}
                   onFocus={(e) => {
@@ -247,10 +313,11 @@ const AdminBookings = () => {
                   )}
                 </div>
                 <div style={styles.searchInfo}>
-                  Showing {filteredBookings.length} of {bookings.length} bookings
+                  Showing {filteredBookings.length} of {categorizedBookings[activeTab as keyof typeof categorizedBookings]?.length || 0} {activeTab === 'all' ? '' : activeTab} bookings
                 </div>
               </div>
-            )}
+            </>
+          )}
 
           {bookings.length === 0 ? (
             <div style={styles.emptyState}>
@@ -260,27 +327,131 @@ const AdminBookings = () => {
             </div>
           ) : (
             <>
-              {window.innerWidth <= 768 && (
-                <div style={styles.scrollHint}>
-                  ← Scroll horizontally to see all columns →
+              {/* Desktop Table View */}
+              {window.innerWidth > 768 && (
+                <div style={styles.tableContainer}>
+                  <table style={styles.table}>
+                    <thead>
+                      <tr style={styles.tableHeader}>
+                        <th style={styles.th}>ID</th>
+                        <th style={styles.th}>Room</th>
+                        <th style={styles.th}>Guest</th>
+                        <th style={styles.th}>Phone</th>
+                        <th style={styles.th}>Add-ons</th>
+                        <th style={styles.th}>Check-in</th>
+                        <th style={styles.th}>Check-out</th>
+                        <th style={styles.th}>Duration</th>
+                        <th style={styles.th}>Revenue</th>
+                        <th style={styles.th}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBookings.map((booking) => {
+                        const startDate = new Date(booking.start_time);
+                        const endDate = new Date(booking.end_time);
+                        const durationHours = booking.duration_hours || Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60));
+                        const statusColors = getStatusColor(booking.status);
+
+                        return (
+                          <tr key={booking.id} style={styles.tableRow}>
+                            <td style={styles.td}>
+                              <span style={styles.bookingId}>#{booking.id}</span>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.roomCell}>
+                                <div style={styles.roomNumber}>Room {booking.room.room_number}</div>
+                                <div style={styles.roomType}>
+                                  {Array.isArray(booking.room.room_type) 
+                                    ? booking.room.room_type.join(', ') 
+                                    : booking.room.room_type}
+                                </div>
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.guestCell}>
+                                <div style={styles.guestName}>{booking.user.name}</div>
+                                <div style={styles.guestEmail}>{booking.user.email}</div>
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.phoneCell}>
+                                📱 {booking.phone_number || 'Not provided'}
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.customizationsCell}>
+                                {booking.customizations && Object.entries(booking.customizations)
+                                  .filter(([_, selected]) => selected)
+                                  .map(([key, _]) => (
+                                    <span key={key} style={styles.customizationTag}>
+                                      {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                                    </span>
+                                  ))}
+                                {(!booking.customizations || Object.values(booking.customizations).every(v => !v)) && (
+                                  <span style={styles.noCustomizations}>None</span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.dateCell}>
+                                <div>{startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                <div style={styles.timeText}>
+                                  {startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <div style={styles.dateCell}>
+                                <div>{endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+                                <div style={styles.timeText}>
+                                  {endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                                </div>
+                              </div>
+                            </td>
+                            <td style={styles.td}>
+                              <span style={styles.duration}>{durationHours}h</span>
+                            </td>
+                            <td style={styles.td}>
+                              <span style={styles.revenue}>
+                                ₹{booking.total_cost 
+                                  ? Number(booking.total_cost).toFixed(0) 
+                                  : (() => {
+                                      const dailyRate = booking.room.cost;
+                                      if (durationHours < 6) return 0; // Not eligible
+                                      if (durationHours <= 12) return dailyRate / 2; // Half day rate
+                                      if (durationHours <= 24) return dailyRate; // Full day rate
+                                      const fullDays = Math.ceil(durationHours / 24);
+                                      return fullDays * dailyRate; // Multiple days
+                                    })()}
+                              </span>
+                            </td>
+                            <td style={styles.td}>
+                              <select
+                                value={booking.status}
+                                onChange={(e) => handleStatusChange(booking.id, e.target.value)}
+                                style={{
+                                  ...styles.statusSelect,
+                                  backgroundColor: statusColors.bg,
+                                  color: statusColors.color,
+                                }}
+                              >
+                                <option value="CONFIRMED">Confirmed</option>
+                                <option value="CHECKED_IN">Checked-in</option>
+                                <option value="CHECKED_OUT">Checked-out</option>
+                                <option value="CANCELLED">Cancelled</option>
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               )}
-              
-              <div style={styles.tableContainer}>
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.tableHeader}>
-                    <th style={styles.th}>ID</th>
-                    <th style={styles.th}>Room</th>
-                    <th style={styles.th}>Guest</th>
-                    <th style={styles.th}>Check-in</th>
-                    <th style={styles.th}>Check-out</th>
-                    <th style={styles.th}>Duration</th>
-                    <th style={styles.th}>Revenue</th>
-                    <th style={styles.th}>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
+
+              {/* Mobile Card View */}
+              {window.innerWidth <= 768 && (
+                <div style={styles.mobileCardsContainer}>
                   {filteredBookings.map((booking) => {
                     const startDate = new Date(booking.start_time);
                     const endDate = new Date(booking.end_time);
@@ -288,65 +459,183 @@ const AdminBookings = () => {
                     const statusColors = getStatusColor(booking.status);
 
                     return (
-                      <tr key={booking.id} style={styles.tableRow}>
-                        <td style={styles.td}>
-                          <span style={styles.bookingId}>#{booking.id}</span>
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.roomCell}>
-                            <div style={styles.roomNumber}>Room {booking.room.room_number}</div>
-                            <div style={styles.roomType}>
+                      <div key={booking.id} style={styles.mobileBookingCard}>
+                        {/* Booking ID Header */}
+                        <div style={styles.mobileCardHeader}>
+                          <div style={styles.mobileBookingId}>
+                            #{booking.id}
+                          </div>
+                          <div style={{
+                            ...styles.mobileStatusBadge,
+                            backgroundColor: statusColors.bg,
+                            color: statusColors.color,
+                          }}>
+                            {booking.status}
+                          </div>
+                        </div>
+
+                        {/* Room Information */}
+                        <div style={styles.mobileRoomSection}>
+                          <div style={styles.mobileSectionTitle}>
+                            🏨 Room Information
+                          </div>
+                          <div style={styles.mobileRoomInfo}>
+                            <div style={styles.mobileRoomNumber}>
+                              Room {booking.room.room_number}
+                            </div>
+                            <div style={styles.mobileRoomType}>
                               {Array.isArray(booking.room.room_type) 
                                 ? booking.room.room_type.join(', ') 
                                 : booking.room.room_type}
                             </div>
                           </div>
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.guestCell}>
-                            <div style={styles.guestName}>{booking.user.name}</div>
-                            <div style={styles.guestEmail}>{booking.user.email}</div>
+                        </div>
+
+                        {/* Guest Information */}
+                        <div style={styles.mobileGuestSection}>
+                          <div style={styles.mobileSectionTitle}>
+                            👤 Guest Information
                           </div>
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.dateCell}>
-                            <div>{startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                            <div style={styles.timeText}>
-                              {startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          <div style={styles.mobileGuestInfo}>
+                            <div style={styles.mobileGuestName}>
+                              {booking.user.name}
+                            </div>
+                            <div style={styles.mobileGuestEmail}>
+                              📧 {booking.user.email}
+                            </div>
+                            <div style={styles.mobileGuestPhone}>
+                              📱 {booking.phone_number || 'No phone provided'}
                             </div>
                           </div>
-                        </td>
-                        <td style={styles.td}>
-                          <div style={styles.dateCell}>
-                            <div>{endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
-                            <div style={styles.timeText}>
-                              {endDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+
+                        {/* Booking Times */}
+                        <div style={styles.mobileTimesGrid}>
+                          {/* Check-in */}
+                          <div style={styles.mobileTimeCard}>
+                            <div style={styles.mobileTimeLabel}>
+                              📅 CHECK-IN
+                            </div>
+                            <div style={styles.mobileTimeDate}>
+                              {startDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </div>
+                            <div style={styles.mobileTimeTime}>
+                              {startDate.toLocaleTimeString('en-US', { 
+                                hour: '2-digit', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}
                             </div>
                           </div>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={styles.duration}>{durationHours}h</span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={styles.revenue}>
-                            ₹{booking.total_cost 
-                              ? Number(booking.total_cost).toFixed(0) 
-                              : (() => {
-                                  const dailyRate = booking.room.cost;
-                                  const hourlyRate = dailyRate / 24;
-                                  if (durationHours <= 6) return Math.ceil(6 * hourlyRate);
-                                  if (durationHours <= 12) return Math.ceil(durationHours * hourlyRate);
-                                  if (durationHours <= 24) return dailyRate;
-                                  return Math.ceil(durationHours / 24) * dailyRate;
-                                })()}
-                          </span>
-                        </td>
-                        <td style={styles.td}>
+
+                          {/* Check-out */}
+                          <div style={{
+                            ...styles.mobileTimeCard,
+                            backgroundColor: '#FEF2F2',
+                            borderColor: '#FECACA',
+                          }}>
+                            <div style={{
+                              ...styles.mobileTimeLabel,
+                              color: '#DC2626',
+                            }}>
+                              📅 CHECK-OUT
+                            </div>
+                            <div style={styles.mobileTimeDate}>
+                              {endDate.toLocaleDateString('en-US', { 
+                                month: 'short', 
+                                day: 'numeric',
+                                year: 'numeric'
+                              })}
+                            </div>
+                            <div style={{
+                              ...styles.mobileTimeTime,
+                              color: '#DC2626',
+                            }}>
+                              {endDate.toLocaleTimeString('en-US', { 
+                                hour: '2-digit', 
+                                minute: '2-digit',
+                                hour12: true 
+                              })}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Duration and Revenue */}
+                        <div style={styles.mobileMetricsGrid}>
+                          <div style={styles.mobileMetricCard}>
+                            <div style={styles.mobileMetricLabel}>
+                              ⏱️ DURATION
+                            </div>
+                            <div style={styles.mobileMetricValue}>
+                              {durationHours}h
+                            </div>
+                          </div>
+
+                          <div style={{
+                            ...styles.mobileMetricCard,
+                            backgroundColor: '#F0FDF4',
+                            borderColor: '#BBF7D0',
+                          }}>
+                            <div style={{
+                              ...styles.mobileMetricLabel,
+                              color: '#059669',
+                            }}>
+                              💰 REVENUE
+                            </div>
+                            <div style={{
+                              ...styles.mobileMetricValue,
+                              color: '#059669',
+                            }}>
+                              ₹{booking.total_cost 
+                                ? Number(booking.total_cost).toFixed(0) 
+                                : (() => {
+                                    const dailyRate = booking.room.cost;
+                                    if (durationHours < 6) return 0;
+                                    if (durationHours <= 12) return dailyRate / 2;
+                                    if (durationHours <= 24) return dailyRate;
+                                    const fullDays = Math.ceil(durationHours / 24);
+                                    return fullDays * dailyRate;
+                                  })()}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Add-ons Section */}
+                        <div style={styles.mobileAddonsSection}>
+                          <div style={styles.mobileSectionTitle}>
+                            🎯 Add-ons & Customizations
+                          </div>
+                          {booking.customizations && Object.entries(booking.customizations).filter(([_, selected]) => selected).length > 0 ? (
+                            <div style={styles.mobileAddonsList}>
+                              {Object.entries(booking.customizations)
+                                .filter(([_, selected]) => selected)
+                                .map(([key, _]) => (
+                                  <span key={key} style={styles.mobileAddonTag}>
+                                    {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
+                                  </span>
+                                ))}
+                            </div>
+                          ) : (
+                            <div style={styles.mobileNoAddons}>
+                              No add-ons selected
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Status Management */}
+                        <div style={styles.mobileStatusSection}>
+                          <div style={styles.mobileSectionTitle}>
+                            🔄 Status Management
+                          </div>
                           <select
                             value={booking.status}
                             onChange={(e) => handleStatusChange(booking.id, e.target.value)}
                             style={{
-                              ...styles.statusSelect,
+                              ...styles.mobileStatusSelect,
                               backgroundColor: statusColors.bg,
                               color: statusColors.color,
                             }}
@@ -356,33 +645,32 @@ const AdminBookings = () => {
                             <option value="CHECKED_OUT">Checked-out</option>
                             <option value="CANCELLED">Cancelled</option>
                           </select>
-                        </td>
-                      </tr>
+                        </div>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-            </div>
+                </div>
+              )}
 
-            {/* No Results Message */}
-            {filteredBookings.length === 0 && searchQuery && (
-              <div style={styles.noResults}>
-                <div style={styles.noResultsIcon}>🔍</div>
-                <div style={styles.noResultsText}>No bookings found for "{searchQuery}"</div>
-                <button 
-                  onClick={() => setSearchQuery('')} 
-                  style={styles.clearSearchBtn}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.backgroundColor = '#5B4FE9';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.backgroundColor = '#6C5CE7';
-                  }}
-                >
-                  Clear Search
-                </button>
-              </div>
-            )}
+              {/* No Results Message */}
+              {filteredBookings.length === 0 && searchQuery && (
+                <div style={styles.noResults}>
+                  <div style={styles.noResultsIcon}>🔍</div>
+                  <div style={styles.noResultsText}>No bookings found for "{searchQuery}"</div>
+                  <button 
+                    onClick={() => setSearchQuery('')} 
+                    style={styles.clearSearchBtn}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.backgroundColor = '#5B4FE9';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.backgroundColor = '#6C5CE7';
+                    }}
+                  >
+                    Clear Search
+                  </button>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -651,6 +939,32 @@ const styles = {
     fontSize: '0.8rem',
     color: '#6B7280',
   },
+  phoneCell: {
+    fontSize: '0.85rem',
+    color: '#374151',
+    fontWeight: '500',
+  },
+  customizationsCell: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.25rem',
+    maxWidth: '120px',
+  },
+  customizationTag: {
+    padding: '0.25rem 0.5rem',
+    backgroundColor: '#EEF2FF',
+    color: '#4F46E5',
+    borderRadius: '12px',
+    fontSize: '0.75rem',
+    fontWeight: '500',
+    textAlign: 'center' as const,
+    whiteSpace: 'nowrap' as const,
+  },
+  noCustomizations: {
+    fontSize: '0.8rem',
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
   dateCell: {
     display: 'flex',
     flexDirection: 'column' as const,
@@ -775,6 +1089,240 @@ const styles = {
     fontSize: '1rem',
     color: '#6B7280',
     fontWeight: '600',
+  },
+
+  // Tabs styles
+  tabsContainer: {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    padding: '1rem',
+    marginBottom: '1rem',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  },
+  tabs: {
+    display: 'flex',
+    gap: '0.5rem',
+    overflowX: 'auto' as const,
+    WebkitOverflowScrolling: 'touch' as const,
+  },
+  tab: {
+    padding: '0.75rem 1.5rem',
+    border: '2px solid #E5E7EB',
+    borderRadius: '8px',
+    backgroundColor: 'white',
+    color: '#6B7280',
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    transition: 'all 0.3s',
+    whiteSpace: 'nowrap' as const,
+  },
+  activeTab: {
+    backgroundColor: '#6C5CE7',
+    borderColor: '#6C5CE7',
+    color: 'white',
+  },
+  
+  // Mobile Card Styles
+  mobileCardsContainer: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '1rem',
+    padding: '0.5rem',
+  },
+  mobileBookingCard: {
+    backgroundColor: 'white',
+    borderRadius: '16px',
+    padding: '1.25rem',
+    border: '1px solid #E5E7EB',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+    marginBottom: '0.75rem',
+  },
+  mobileCardHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '1rem',
+    paddingBottom: '0.75rem',
+    borderBottom: '2px solid #F3F4F6',
+  },
+  mobileBookingId: {
+    fontSize: '1rem',
+    fontWeight: '700',
+    color: '#6366F1',
+    backgroundColor: '#EEF2FF',
+    padding: '0.5rem 1rem',
+    borderRadius: '20px',
+    border: '1px solid #C7D2FE',
+  },
+  mobileStatusBadge: {
+    padding: '0.5rem 1rem',
+    borderRadius: '20px',
+    fontSize: '0.85rem',
+    fontWeight: '700',
+    textAlign: 'center' as const,
+    minWidth: '80px',
+  },
+  mobileRoomSection: {
+    backgroundColor: '#F8FAFC',
+    padding: '1rem',
+    borderRadius: '12px',
+    marginBottom: '1rem',
+    border: '1px solid #E2E8F0',
+  },
+  mobileGuestSection: {
+    backgroundColor: '#F8FAFC',
+    padding: '1rem',
+    borderRadius: '12px',
+    marginBottom: '1rem',
+    border: '1px solid #E2E8F0',
+  },
+  mobileSectionTitle: {
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    color: '#475569',
+    marginBottom: '0.75rem',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  mobileRoomInfo: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.25rem',
+  },
+  mobileRoomNumber: {
+    fontSize: '1.1rem',
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  mobileRoomType: {
+    fontSize: '0.9rem',
+    color: '#6B7280',
+  },
+  mobileGuestInfo: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    gap: '0.5rem',
+  },
+  mobileGuestName: {
+    fontSize: '1.1rem',
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  mobileGuestEmail: {
+    fontSize: '0.95rem',
+    color: '#6B7280',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  mobileGuestPhone: {
+    fontSize: '0.95rem',
+    color: '#374151',
+    fontWeight: '500',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '0.5rem',
+  },
+  mobileTimesGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  mobileTimeCard: {
+    backgroundColor: '#F0FDF4',
+    padding: '1rem',
+    borderRadius: '12px',
+    border: '1px solid #BBF7D0',
+    textAlign: 'center' as const,
+  },
+  mobileTimeLabel: {
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    color: '#059669',
+    marginBottom: '0.5rem',
+  },
+  mobileTimeDate: {
+    fontSize: '0.9rem',
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: '0.25rem',
+  },
+  mobileTimeTime: {
+    fontSize: '1rem',
+    color: '#059669',
+    fontWeight: '700',
+  },
+  mobileMetricsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '0.75rem',
+    marginBottom: '1rem',
+  },
+  mobileMetricCard: {
+    backgroundColor: '#F0F9FF',
+    padding: '1rem',
+    borderRadius: '12px',
+    border: '1px solid #BAE6FD',
+    textAlign: 'center' as const,
+  },
+  mobileMetricLabel: {
+    fontSize: '0.8rem',
+    fontWeight: '600',
+    color: '#0369A1',
+    marginBottom: '0.5rem',
+  },
+  mobileMetricValue: {
+    fontSize: '1.5rem',
+    fontWeight: '800',
+    color: '#0284C7',
+  },
+  mobileAddonsSection: {
+    backgroundColor: '#FEFCE8',
+    padding: '1rem',
+    borderRadius: '12px',
+    border: '1px solid #FEF08A',
+    marginBottom: '1rem',
+  },
+  mobileAddonsList: {
+    display: 'flex',
+    flexWrap: 'wrap' as const,
+    gap: '0.5rem',
+  },
+  mobileAddonTag: {
+    padding: '0.5rem 0.75rem',
+    backgroundColor: '#EEF2FF',
+    color: '#6366F1',
+    borderRadius: '16px',
+    fontSize: '0.85rem',
+    fontWeight: '600',
+    border: '1px solid #C7D2FE',
+  },
+  mobileNoAddons: {
+    fontSize: '0.9rem',
+    color: '#6B7280',
+    fontStyle: 'italic',
+    textAlign: 'center' as const,
+    padding: '0.5rem',
+  },
+  mobileStatusSection: {
+    backgroundColor: '#F3F4F6',
+    padding: '1rem',
+    borderRadius: '12px',
+    border: '1px solid #D1D5DB',
+  },
+  mobileStatusSelect: {
+    width: '100%',
+    padding: '0.75rem 1rem',
+    borderRadius: '12px',
+    border: 'none',
+    fontSize: '1rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+    outline: 'none',
+    textTransform: 'capitalize' as const,
   },
 };
 
