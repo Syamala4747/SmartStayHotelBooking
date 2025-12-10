@@ -8,17 +8,22 @@ dotenv.config();
 async function seedAdmin() {
   // Database configuration
   const databaseUrl = process.env.DATABASE_URL;
-  
+
   if (!databaseUrl) {
     console.error('❌ DATABASE_URL not found in .env file');
+    console.error('💡 Please add DATABASE_URL to your .env file');
+    console.error('   Example: DATABASE_URL=postgresql://user:pass@host:5432/database');
     process.exit(1);
   }
+
+  console.log('🔗 Connecting to database...');
+  console.log('🌐 Provider:', databaseUrl.includes('neon.tech') ? 'Neon PostgreSQL' : 'PostgreSQL');
 
   // Create data source
   const dataSource = new DataSource({
     type: 'postgres',
     url: databaseUrl,
-    ssl: databaseUrl.includes('sslmode=require') ? {
+    ssl: databaseUrl.includes('sslmode=require') || databaseUrl.includes('neon.tech') ? {
       rejectUnauthorized: false
     } : false,
     synchronize: false,
@@ -26,10 +31,8 @@ async function seedAdmin() {
   });
 
   try {
-    // Connect to database
-    console.log('🔗 Connecting to database...');
     await dataSource.initialize();
-    console.log('✅ Connected to database');
+    console.log('✅ Connected to database successfully!');
 
     // Get admin credentials from environment
     const adminName = process.env.ADMIN_NAME || 'Hotel Admin';
@@ -38,7 +41,7 @@ async function seedAdmin() {
 
     // Hash password
     console.log('🔐 Hashing password...');
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    const hashedPassword = await bcrypt.hash(adminPassword, 8);
 
     // Check if admin already exists
     const existingAdmin = await dataSource.query(
@@ -78,9 +81,15 @@ async function seedAdmin() {
     // Close connection
     await dataSource.destroy();
     console.log('✅ Database connection closed');
-    
+
   } catch (error) {
-    console.error('❌ Error:', error.message);
+    console.error('❌ Database Error:', error.message);
+    console.error('');
+    console.error('🔧 Troubleshooting:');
+    console.error('   1. Check your DATABASE_URL in .env file');
+    console.error('   2. Make sure your database is running');
+    console.error('   3. Verify your database credentials');
+    console.error('   4. Check if the database exists');
     process.exit(1);
   }
 }

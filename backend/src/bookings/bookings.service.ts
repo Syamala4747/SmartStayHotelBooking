@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan, MoreThan } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Booking, BookingStatus } from '../entities/booking.entity';
 import { RoomsService } from '../rooms/rooms.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -101,7 +101,7 @@ export class BookingsService {
     });
   }
 
-  async findRoomBookings(roomId: number, date?: string): Promise<Booking[]> {
+  async findRoomBookings(roomId: number): Promise<Booking[]> {
     console.log(`Finding bookings for room ${roomId}`);
 
     // Use the same method as findAll() to get real database data

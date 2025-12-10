@@ -7,7 +7,7 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "build": "nest build",
-    "seed:admin": "npm run build && node dist/seed-database.js"
+    "seed": "npx ts-node src/seed-database.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

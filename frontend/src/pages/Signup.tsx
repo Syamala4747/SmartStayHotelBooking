@@ -198,26 +198,31 @@ const Signup = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+    setIsLoading(true);
 
     // Basic validation
     if (!name.trim()) {
       setError('Please enter your full name');
+      setIsLoading(false);
       return;
     }
 
     if (!email.trim()) {
       setError('Please enter your email address');
+      setIsLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters long');
+      setIsLoading(false);
       return;
     }
 
@@ -239,6 +244,8 @@ const Signup = () => {
       } else {
         setError(err.response?.data?.message || 'Account creation failed. Please try again.');
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
