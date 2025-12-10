@@ -426,16 +426,9 @@ const AdminRooms = () => {
                                 </td>
                                 <td style={styles.td}>
                                   <div style={styles.customizationsCell}>
-                                    {booking.customizations && Object.entries(booking.customizations)
-                                      .filter(([_, selected]) => selected)
-                                      .map(([key, _]) => (
-                                        <span key={key} style={styles.customizationTag}>
-                                          {key.charAt(0).toUpperCase() + key.slice(1).replace(/([A-Z])/g, ' $1')}
-                                        </span>
-                                      ))}
-                                    {(!booking.customizations || Object.values(booking.customizations).every(v => !v)) && (
-                                      <span style={styles.noCustomizations}>None</span>
-                                    )}
+                                    {booking.customizations && (booking.customizations as any).specialRequests 
+                                      ? (booking.customizations as any).specialRequests 
+                                      : 'None'}
                                   </div>
                                 </td>
                                 <td style={styles.td}>

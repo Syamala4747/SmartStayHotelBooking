@@ -1,493 +1,144 @@
 # 🏨 SmartStay Hotel Booking System
 
-A complete full-stack hotel room booking system with admin dashboard, user bookings, AI chatbot, and real-time feedback system.
+Modern full-stack hotel booking application with admin dashboard, AI chatbot, and HD image optimization.
 
 ## ✨ Features
 
-### 👤 User Features
-- User registration and authentication
-- Browse available rooms with images
-- View detailed room information and reviews
-- Book rooms with date/time selection
-- View and manage bookings
-- Leave feedback and ratings for rooms
-- AI-powered chatbot for assistance
-- Responsive mobile design
-
-### 👨‍💼 Admin Features
-- Admin dashboard with statistics
-- Manage rooms (Add/Edit/Delete)
-- **HD Image Upload & Optimization** via Cloudinary
-  - Automatic cloud-based HD enhancement
-  - Real-time image optimization (quality: auto:best)
-  - Smart format conversion (WebP/AVIF support)
-  - CDN delivery for fast loading
-  - Up to 20MB file size support
-- View all bookings across users
-- Monitor customer feedbacks
-- Real-time booking conflict detection
-
-### 🤖 AI Chatbot
-- Powered by Groq AI
-- Helps users find suitable rooms
-- Answers questions about pricing, capacity, and amenities
-- Natural language processing
+**User Experience:** Registration, room browsing, booking management, feedback system, AI assistance  
+**Admin Dashboard:** Room management, booking oversight, statistics, HD image upload via Cloudinary  
+**AI Chatbot:** Groq-powered assistant for room recommendations and pricing queries  
+**Mobile Responsive:** Touch-friendly interface optimized for all devices
 
 ## 🛠️ Tech Stack
 
-### Backend
-- **Framework:** NestJS
-- **Language:** TypeScript
-- **Database:** PostgreSQL (Neon Cloud)
-- **ORM:** TypeORM
-- **Authentication:** JWT + Passport
-- **Password Hashing:** bcrypt
-- **Image Upload:** Cloudinary
-- **AI:** Groq SDK
-
-### Frontend
-- **Framework:** React 18
-- **Language:** TypeScript
-- **Routing:** React Router v6
-- **HTTP Client:** Axios
-- **Build Tool:** Vite
-- **Styling:** Inline CSS with gradients
+**Backend:** NestJS, TypeScript, PostgreSQL (Neon), TypeORM, JWT, bcrypt, Cloudinary, Groq AI  
+**Frontend:** React 18, TypeScript, Vite, React Router v6, Axios  
+**Security:** JWT authentication, RBAC, input validation, CORS, SQL injection prevention
 
 ## 📁 Project Structure
 
 ```
-hotel-booking-system/
-├── backend/
-│   ├── src/
-│   │   ├── auth/           # Authentication module
-│   │   ├── users/          # User management
-│   │   ├── rooms/          # Room management
-│   │   ├── bookings/       # Booking system
-│   │   ├── feedback/       # Feedback system
-│   │   ├── ai/             # AI chatbot
-│   │   ├── cloudinary/     # Image upload
-│   │   ├── entities/       # Database entities
-│   │   ├── app.module.ts
-│   │   └── main.ts
-│   ├── .env                # Environment variables
-│   └── package.json
-│
-└── frontend/
-    ├── src/
-    │   ├── api/            # API client
-    │   ├── components/     # Reusable components
-    │   │   ├── Navbar.tsx
-    │   │   ├── Chatbot.tsx
-    │   │   └── Toast.tsx
-    │   ├── context/        # Auth context
-    │   ├── pages/          # Page components
-    │   │   ├── Landing.tsx
-    │   │   ├── Login.tsx
-    │   │   ├── Signup.tsx
-    │   │   ├── RoomsList.tsx
-    │   │   ├── RoomDetail.tsx
-    │   │   ├── MyBookings.tsx
-    │   │   ├── AdminRooms.tsx
-    │   │   ├── AdminBookings.tsx
-    │   │   └── AdminFeedbacks.tsx
-    │   ├── App.tsx
-    │   └── main.tsx
-    ├── .env                # Environment variables
-    └── package.json
+├── backend/src/
+│   ├── auth/              # JWT authentication & user management
+│   ├── bookings/          # Booking system with conflict detection
+│   ├── rooms/             # Room CRUD operations
+│   ├── feedback/          # Rating and review system
+│   ├── ai/                # Groq AI chatbot integration
+│   ├── cloudinary/        # HD image upload & optimization
+│   └── entities/          # TypeORM database models
+└── frontend/src/
+    ├── pages/             # React pages (Login, Rooms, Admin panels)
+    ├── components/        # Reusable UI components (Navbar, Chatbot)
+    ├── api/               # Axios API client & services
+    └── context/           # Authentication context
 ```
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Node.js (v18 or higher)
-- PostgreSQL or Neon account
-- Cloudinary account (for image uploads)
-- Groq API key (for AI chatbot)
+**Prerequisites:** Node.js v18+, PostgreSQL/Neon account, Cloudinary account, Groq API key
 
-### 1. Clone the Repository
+### 1. Setup Backend
 ```bash
 git clone <repository-url>
-cd hotel-booking-system
-```
-
-### 2. Backend Setup
-
-```bash
-cd backend
+cd hotel-booking-system/backend
 npm install
 ```
 
-#### Configure Environment Variables
-
-Create/update `backend/.env`:
-
+**Environment Variables** (`backend/.env`):
 ```env
-# Database (Neon PostgreSQL)
 DATABASE_URL=postgresql://user:password@host/database?sslmode=require
-
-# JWT Configuration
 JWT_SECRET=your_jwt_secret_key
-JWT_EXPIRES_IN=7d
-
-# Server
-PORT=3000
-
-# Admin Credentials
-ADMIN_EMAIL=hotel@gmail.com
-ADMIN_PASSWORD=1234567890
-ADMIN_NAME=Hotel Admin
-
-# Cloudinary (Image Upload)
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
-
-# AI Chatbot
 GROQ_API_KEY=your_groq_api_key
 ```
 
-#### Start Backend
 ```bash
-npm run start:dev
+npm run start:dev  # Runs on http://localhost:3000
+npm run seed       # Creates admin user
 ```
 
-Backend runs on: **http://localhost:3000**
-
-### 3. Frontend Setup
-
+### 2. Setup Frontend
 ```bash
-cd frontend
+cd ../frontend
 npm install
 ```
 
-#### Configure Environment Variables
-
-Create `frontend/.env`:
-
+**Environment Variables** (`frontend/.env`):
 ```env
-# API Base URL
 VITE_API_BASE_URL=http://localhost:3000
 ```
 
-#### Start Frontend
 ```bash
-npm run dev
+npm run dev        # Runs on http://localhost:5173
 ```
 
-Frontend runs on: **http://localhost:5173**
-
-### 4. Create Admin User
-
-```bash
-cd backend
-npm run build
-node dist/seed-admin.js
-```
-
-Copy the generated SQL and run it in your database.
-
-## 🔐 Default Admin Credentials
-
-**Email:** hotel@gmail.com  
-**Password:** 1234567890
+**Default Admin:** hotel@gmail.com / 1234567890
 
 ## 📊 Database Schema
 
-### Users Table
-```sql
-- id (PRIMARY KEY)
-- name (VARCHAR)
-- email (VARCHAR, UNIQUE)
-- password (VARCHAR, HASHED)
-- role (ENUM: 'ADMIN', 'USER')
-- created_at (TIMESTAMP)
-```
+**Users:** id, name, email (unique), password (hashed), role (ADMIN/USER), created_at  
+**Rooms:** id, room_number (unique), room_type[], cost, capacity, description, images[], is_active  
+**Bookings:** id, room_id, user_id, start_time, end_time, total_cost, status (CONFIRMED/CANCELLED)  
+**Feedbacks:** id, room_id, user_id, rating (1-5), comment, created_at
 
-### Rooms Table
-```sql
-- id (PRIMARY KEY)
-- room_number (VARCHAR, UNIQUE)
-- room_type (ARRAY: 'AC', 'NON_AC', '2BHK', '3BHK', etc.)
-- cost (INTEGER)
-- capacity (INTEGER)
-- description (TEXT)
-- images (ARRAY)
-- is_active (BOOLEAN)
-- created_at (TIMESTAMP)
-```
+## 📸 HD Image Optimization
 
-### Bookings Table
-```sql
-- id (PRIMARY KEY)
-- room_id (FOREIGN KEY)
-- user_id (FOREIGN KEY)
-- start_time (TIMESTAMP)
-- end_time (TIMESTAMP)
-- total_cost (INTEGER)
-- status (ENUM: 'CONFIRMED', 'CANCELLED')
-- created_at (TIMESTAMP)
-```
-
-### Feedbacks Table
-```sql
-- id (PRIMARY KEY)
-- room_id (FOREIGN KEY)
-- user_id (FOREIGN KEY)
-- rating (INTEGER: 1-5)
-- comment (TEXT)
-- created_at (TIMESTAMP)
-```
-
-## � HPD Image Optimization
-
-### How It Works
-The system uses **Cloudinary** for automatic HD image optimization:
-
-1. **Admin uploads images** (up to 20MB each)
-2. **Cloudinary processes** with these optimizations:
-   - Quality: `auto:best` (intelligent quality selection)
-   - Format: `auto` (WebP/AVIF for modern browsers)
-   - Width: Limited to 2000px (maintains HD quality)
-   - Compression: Smart compression without quality loss
-3. **CDN delivery** ensures fast loading worldwide
-4. **Real-time display** on user-facing pages
-
-### Benefits
-- ✅ **HD Quality**: Images maintain high resolution
-- ✅ **Fast Loading**: CDN + optimized formats
-- ✅ **Auto Format**: WebP/AVIF for supported browsers
-- ✅ **Responsive**: Automatic sizing for different devices
-- ✅ **Bandwidth Saving**: Smart compression reduces file size by 50-80%
-
-### Configuration
-Add these to `backend/.env`:
-```env
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-```
-
-Get free Cloudinary credentials at: https://cloudinary.com/users/register/free
-
-### Performance
-- **File Size Reduction**: 70-92% smaller
-- **Load Time**: 10x faster with lazy loading
-- **Format**: Auto WebP/AVIF for modern browsers
-- **CDN**: Global delivery network
-
-📖 **Detailed Guide**: See [IMAGE_OPTIMIZATION_GUIDE.md](./IMAGE_OPTIMIZATION_GUIDE.md) for complete performance details.
+**Cloudinary Integration:** Automatic HD optimization (up to 20MB), WebP/AVIF conversion, CDN delivery  
+**Performance:** 70-90% file size reduction, 10x faster loading, real-time optimization  
+**Setup:** Get free credentials at [cloudinary.com](https://cloudinary.com/users/register/free)
 
 ## 🔌 API Endpoints
 
-### Authentication
-- `POST /auth/signup` - Register new user
-- `POST /auth/login` - Login user/admin
-
-### Rooms
-- `GET /rooms` - List all active rooms
-- `GET /rooms/:id` - Get room details
-- `GET /rooms/:id/feedback` - Get room feedbacks
-- `POST /rooms` - Create room (Admin only)
-- `PATCH /rooms/:id` - Update room (Admin only)
-- `DELETE /rooms/:id` - Delete room (Admin only)
-
-### Bookings
-- `POST /bookings` - Create booking
-- `GET /bookings/my` - Get user's bookings
-- `GET /bookings` - Get all bookings (Admin only)
-- `PATCH /bookings/:id/cancel` - Cancel booking
-
-### Feedback
-- `POST /feedback` - Create feedback
-- `PATCH /feedback/:id` - Update feedback
-- `DELETE /feedback/:id` - Delete feedback
-
-### AI Chatbot
-- `POST /ai/chat` - Chat with AI assistant
+**Auth:** `POST /auth/signup`, `POST /auth/login`  
+**Rooms:** `GET|POST|PATCH|DELETE /rooms` (Admin), `GET /rooms/:id/feedback`  
+**Bookings:** `POST /bookings`, `GET /bookings/my`, `PATCH /bookings/:id/cancel`  
+**Feedback:** `POST|PATCH|DELETE /feedback`  
+**AI:** `POST /ai/chat`
 
 ## 💰 Pricing Logic
 
-The system calculates booking costs based on duration:
+**Duration-based:** 6-12hrs (hourly rate) | 12-24hrs (full day) | >24hrs (multiple days)  
+**Example:** ₹2400/day = ₹100/hr → 8hrs: ₹800, 20hrs: ₹2400, 30hrs: ₹4800
 
-- **Minimum:** 6 hours
-- **6-12 hours:** Hourly rate (daily rate / 24)
-- **12-24 hours:** Full day rate
-- **>24 hours:** Multiple days rate
+## 🎨 UI/UX & Security
 
-Example:
-- Daily rate: ₹2400
-- Hourly rate: ₹100
-- 8 hours booking: ₹800
-- 20 hours booking: ₹2400 (full day)
-- 30 hours booking: ₹4800 (2 days)
-
-## 🔒 Security Features
-
-- ✅ Password hashing with bcrypt (10 rounds)
-- ✅ JWT-based authentication
-- ✅ Role-based access control (RBAC)
-- ✅ Protected API routes
-- ✅ Input validation with class-validator
-- ✅ CORS configuration
-- ✅ SQL injection prevention (TypeORM)
-- ✅ XSS protection
-
-## 🎨 UI Features
-
-- Modern gradient designs
-- Smooth animations and transitions
-- Responsive mobile layout
-- Professional card designs
-- Interactive hover effects
-- Toast notifications
-- Loading states
-- Error handling
-
-## 📱 Mobile Responsive
-
-- Optimized navbar for mobile
-- Touch-friendly buttons
-- Responsive grid layouts
-- Mobile-optimized chatbot
-- Swipe-friendly cards
+**Security:** bcrypt hashing, JWT auth, RBAC, input validation, CORS, SQL injection prevention  
+**Design:** Modern gradients, smooth animations, responsive layouts, loading states, toast notifications  
+**Mobile:** Touch-friendly interface, optimized navigation, mobile-first design
 
 ## 🌐 Deployment
 
-### Backend Deployment (Render/Railway/Heroku)
-
-1. **Set environment variables** in your hosting platform
-2. **Update database** to use DATABASE_URL
-3. **Build the project:**
-   ```bash
-   npm run build
-   ```
-4. **Start command:**
-   ```bash
-   npm run start:prod
-   ```
-
-### Frontend Deployment (Vercel/Netlify)
-
-1. **Update API URL** in `frontend/.env`:
-   ```env
-   VITE_API_BASE_URL=https://your-backend-url.com
-   ```
-2. **Build the project:**
-   ```bash
-   npm run build
-   ```
-3. **Deploy the `dist` folder**
-
-### Database (Neon PostgreSQL)
-
-1. Create a Neon account at https://neon.tech
-2. Create a new project and database
-3. Copy the connection string
-4. Update `DATABASE_URL` in backend `.env`
-5. Run migrations/seed admin user
+**Backend:** Deploy to Render/Railway/Heroku with `npm run build` → `npm run start:prod`  
+**Frontend:** Deploy to Vercel/Netlify with `npm run build` → deploy `dist/` folder  
+**Database:** Use [Neon PostgreSQL](https://neon.tech) (free tier available)  
+**Environment:** Set all variables in hosting platform, update API URLs for production
 
 ## 🧪 Testing
 
-### Test Admin Login
-1. Go to http://localhost:5173
-2. Click "Login"
-3. Enter admin credentials
-4. Access admin dashboard
-
-### Test User Flow
-1. Click "Sign Up"
-2. Create a new account
-3. Browse rooms
-4. Book a room
-5. View bookings
-6. Leave feedback
-
-### Test AI Chatbot
-1. Click the chat icon (💬)
-2. Ask questions like:
-   - "What rooms are available?"
-   - "I need a room for 4 people"
-
-### Test HD Image Upload
-1. Login as admin
-2. Go to "Manage Rooms"
-3. Click "Add New Room"
-4. Upload images (up to 20MB each)
-5. Images are automatically optimized to HD quality via Cloudinary
-6. View the HD images on user-facing pages in real-time
-   - "Show me budget-friendly options"
+**Admin Flow:** Login (hotel@gmail.com/1234567890) → Manage rooms → Upload HD images → View bookings  
+**User Flow:** Sign up → Browse rooms → Make booking → Leave feedback  
+**AI Chatbot:** Click chat icon → Ask "What rooms are available?" or "I need a room for 4 people"  
+**Image Upload:** Admin panel → Add room → Upload images (auto HD optimization)
 
 ## 🐛 Troubleshooting
 
-### Backend won't start
-- Check if PostgreSQL is running
-- Verify DATABASE_URL in `.env`
-- Ensure port 3000 is not in use
-- Run `npm install` again
+**Backend Issues:** Check DATABASE_URL, port 3000 availability, PostgreSQL status, run `npm install`  
+**Frontend Issues:** Verify VITE_API_BASE_URL, clear browser cache, check console errors  
+**Image Upload:** Verify Cloudinary credentials, max 20MB files, supported formats (JPG/PNG/WebP)  
+**AI Chatbot:** Check GROQ_API_KEY, API quotas, backend console logs
 
-### Frontend won't connect
-- Verify backend is running on port 3000
-- Check VITE_API_BASE_URL in frontend `.env`
-- Clear browser cache
-- Check browser console for errors
+## 📝 Environment Variables
 
-### Images not uploading
-- Verify Cloudinary credentials in backend `.env`
-- Check file size (max 20MB for HD images)
-- Ensure proper image formats (JPG, PNG, WebP, GIF)
-- Confirm Cloudinary account is active
+**Backend:** DATABASE_URL, JWT_SECRET, CLOUDINARY_*, GROQ_API_KEY, ADMIN_*  
+**Frontend:** VITE_API_BASE_URL
 
-### Chatbot not responding
-- Verify GROQ_API_KEY in backend `.env`
-- Check API quota/limits
-- Review backend console for errors
+## 🤝 Contributing & License
 
-## 📝 Environment Variables Reference
-
-### Backend (.env)
-```env
-DATABASE_URL=              # PostgreSQL connection string
-JWT_SECRET=                # Secret key for JWT
-JWT_EXPIRES_IN=7d          # Token expiration
-PORT=3000                  # Server port
-ADMIN_EMAIL=               # Admin email
-ADMIN_PASSWORD=            # Admin password
-ADMIN_NAME=                # Admin name
-CLOUDINARY_CLOUD_NAME=     # Cloudinary cloud name
-CLOUDINARY_API_KEY=        # Cloudinary API key
-CLOUDINARY_API_SECRET=     # Cloudinary API secret
-GROQ_API_KEY=              # Groq AI API key
-```
-
-### Frontend (.env)
-```env
-VITE_API_BASE_URL=         # Backend API URL
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## 📄 License
-
-MIT License - feel free to use this project for learning or commercial purposes.
-
-## 👨‍💻 Author
-
-Built with ❤️ using NestJS, React, and TypeScript
-
-## 🙏 Acknowledgments
-
-- NestJS for the amazing backend framework
-- React team for the frontend library
-- Neon for cloud PostgreSQL
-- Cloudinary for image hosting
-- Groq for AI capabilities
+**Contributing:** Fork → Branch → Commit → Push → Pull Request  
+**License:** MIT - Free for learning and commercial use
 
 ---
 
-**Happy Booking! 🏨✨**
+**Built with ❤️ using NestJS, React & TypeScript | Happy Booking! 🏨✨**
